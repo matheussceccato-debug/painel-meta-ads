@@ -742,6 +742,11 @@ function onPeriodChange() {
   const v = document.getElementById('f-period').value;
   state.filters.date_preset = v;
   document.getElementById('custom-dates').style.display = v === 'custom' ? 'flex' : 'none';
+  if (v !== 'custom') {
+    state.filters.since = null;
+    state.filters.until = null;
+    loadInsights();
+  }
 }
 
 function applyFilters() {
