@@ -525,6 +525,19 @@ td.nd { color: var(--dim); text-align: right; }
       </div>
     </div>
 
+    <!-- TABELA POR ANÚNCIO -->
+    <div class="table-card" id="ad-breakdown-card">
+      <div class="table-header">
+        <h3>Desempenho por Anúncio</h3>
+      </div>
+      <div class="table-wrap">
+        <table id="ad-breakdown-table">
+          <thead id="ad-table-head"></thead>
+          <tbody id="ad-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- VÍDEO -->
     <div class="video-section" id="video-section">
       <div class="section-title">Métricas de Vídeo</div>
@@ -810,6 +823,7 @@ function renderDashboard() {
   renderTable(rows);
   renderVideo(rows);
   updateTimestamp();
+  loadAdBreakdown();
 }
 
 // ── KPIs ───────────────────────────────────────────────────────────────────
@@ -1013,6 +1027,65 @@ function sortTable(key) {
   if (state.sortKey === key) state.sortDir *= -1;
   else { state.sortKey = key; state.sortDir = -1; }
   renderTable(state.insights);
+}
+
+// ── TABELA POR ANÚNCIO (sempre nível ad) ────────────────────────────────────
+const AD_TABLE_COLS = [
+  { key: 'campaign_name', label: 'Campanha',      fmt: v => `<span class="name-col" title="${v||''}">${v||'N/D'}</span>`, cls: 'name-col' },
+  { key: 'adset_name',    label: 'Conjunto',       fmt: v => `<span class="name-col" title="${v||''}">${v||'N/D'}</span>`, cls: 'name-col' },
+  { key: 'name',          label: 'Anúncio',        fmt: v => `<span class="name-col" title="${v||''}">${v||'N/D'}</span>`, cls: 'name-col' },
+  { key: 'spend',             label: 'Investimento', fmt: v => fmtBRL(v),    cls: 'num' },
+  { key: 'impressions',       label: 'Impressões',   fmt: v => fmtNum(v),    cls: 'num' },
+  { key: 'cpm',               label: 'CPM',          fmt: v => fmtBRL(v),    cls: 'num' },
+  { key: 'ctr',               label: 'CTR',          fmt: v => fmtPct(v,2),  cls: 'num' },
+  { key: 'link_clicks',       label: 'Cliques',      fmt: v => fmtNum(v),    cls: 'num' },
+  { key: 'cpc',               label: 'CPC',          fmt: v => v ? fmtBRL(v) : '<span class="nd">N/D</span>', cls: 'num' },
+  { key: 'lp_views',          label: 'LP Views',     fmt: v => v > 0 ? fmtNum(v) : '<span class="nd">N/D</span>', cls: 'num' },
+  { key: 'initiate_checkout', label: 'Início Compra',fmt: v => v > 0 ? fmtNum(v) : '<span class="nd">N/D</span>', cls: 'num' },
+  { key: 'purchases',         label: 'Compras',      fmt: v => v > 0 ? fmtNum(v) : '<span class="nd">N/D</span>', cls: 'num' },
+  { key: 'costPerPurch',      label: 'Custo/Compra', fmt: v => v ? fmtBRL(v) : '<span class="nd">N/D</span>', cls: 'num' }
+];
+
+async function loadAdBreakdown() {
+  const f = state.filters;
+  const params = new URLSearchParams();
+  params.set('ad_ids', 'all');
+  if (f.since && f.until) {
+    params.set('since', f.since);
+    params.set('until', f.until);
+  } else {
+    params.set('date_preset', f.date_preset);
+  }
+
+  try {
+    const res = await fetch(`/api/insights?${params}`);
+    const data = await res.json();
+    renderAdTable(data.data || []);
+  } catch(e) {
+    document.getElementById('ad-table-body').innerHTML = '<tr><td colspan="14" class="empty-state">Erro ao carregar</td></tr>';
+  }
+}
+
+function renderAdTable(rows) {
+  const grouped = groupByKey(rows, 'ad_id', 'ad_name').sort((a,b) => b.spend - a.spend);
+
+  document.getElementById('ad-table-head').innerHTML = '<tr>' + AD_TABLE_COLS.map(c =>
+    `<th>${c.label}</th>`
+  ).join('') + '</tr>';
+
+  if (!grouped.length) {
+    document.getElementById('ad-table-body').innerHTML = '<tr><td colspan="14" class="empty-state">Sem dados</td></tr>';
+    return;
+  }
+
+  document.getElementById('ad-table-body').innerHTML = grouped.map(r => {
+    const firstRow = r.rows[0] || {};
+    const enriched = { ...r, campaign_name: firstRow.campaign_name, adset_name: firstRow.adset_name };
+    return '<tr>' + AD_TABLE_COLS.map(c => {
+      const val = enriched[c.key];
+      return `<td class="${c.cls||''}">${c.fmt(val, enriched)}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
 }
 
 // ── VÍDEO ──────────────────────────────────────────────────────────────────
