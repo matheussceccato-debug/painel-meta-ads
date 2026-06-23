@@ -1072,6 +1072,14 @@ async function loadAdBreakdown() {
 }
 
 function renderAdTable(rows) {
+  // Preservar campaign_name e adset_name antes do groupByKey consumir as rows
+  const adContext = {};
+  for (const r of rows) {
+    if (r.ad_id && !adContext[r.ad_id]) {
+      adContext[r.ad_id] = { campaign_name: r.campaign_name, adset_name: r.adset_name };
+    }
+  }
+
   const grouped = groupByKey(rows, 'ad_id', 'ad_name').sort((a,b) => b.spend - a.spend);
 
   document.getElementById('ad-table-head').innerHTML = '<tr>' + AD_TABLE_COLS.map(c =>
@@ -1084,8 +1092,8 @@ function renderAdTable(rows) {
   }
 
   document.getElementById('ad-table-body').innerHTML = grouped.map(r => {
-    const firstRow = r.rows[0] || {};
-    const enriched = { ...r, campaign_name: firstRow.campaign_name, adset_name: firstRow.adset_name };
+    const ctx = adContext[r.id] || {};
+    const enriched = { ...r, campaign_name: ctx.campaign_name, adset_name: ctx.adset_name };
     return '<tr>' + AD_TABLE_COLS.map(c => {
       const val = enriched[c.key];
       return `<td class="${c.cls||''}">${c.fmt(val, enriched)}</td>`;
