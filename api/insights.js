@@ -53,7 +53,9 @@ export default async function handler(req, res) {
     ? `&filtering=${encodeURIComponent(JSON.stringify(filtering))}`
     : '';
 
-  const url = `${base}/act_${accountId}/insights?fields=${encodeURIComponent(fields)}&level=${level}&time_increment=1&${dateParam}${filterParam}&limit=500&access_token=${token}`;
+  const noTimeIncrement = req.query.no_time_increment === '1';
+  const timeParam = noTimeIncrement ? '' : '&time_increment=1';
+  const url = `${base}/act_${accountId}/insights?fields=${encodeURIComponent(fields)}&level=${level}${timeParam}&${dateParam}${filterParam}&limit=500&access_token=${token}`;
 
   try {
     const response = await fetch(url);

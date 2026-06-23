@@ -1050,6 +1050,7 @@ async function loadAdBreakdown() {
   const f = state.filters;
   const params = new URLSearchParams();
   params.set('force_level', 'ad');
+  params.set('no_time_increment', '1');
   if (f.since && f.until) {
     params.set('since', f.since);
     params.set('until', f.until);
@@ -1060,10 +1061,13 @@ async function loadAdBreakdown() {
   try {
     const res = await fetch(`/api/insights?${params}`);
     const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    if (data.error) {
+      document.getElementById('ad-table-body').innerHTML = `<tr><td colspan="14" class="empty-state">${data.error}</td></tr>`;
+      return;
+    }
     renderAdTable(data.data || []);
   } catch(e) {
-    document.getElementById('ad-table-body').innerHTML = '<tr><td colspan="14" class="empty-state">Erro ao carregar</td></tr>';
+    document.getElementById('ad-table-body').innerHTML = `<tr><td colspan="14" class="empty-state">${e.message}</td></tr>`;
   }
 }
 
