@@ -10,12 +10,14 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Variáveis de ambiente não configuradas.' });
   }
 
-  const { campaign_ids, adset_ids, ad_ids, date_preset, since, until } = req.query;
+  const { campaign_ids, adset_ids, ad_ids, date_preset, since, until, force_level } = req.query;
 
   // Nível da consulta baseado no filtro mais específico selecionado
-  let level = 'campaign';
-  if (ad_ids && ad_ids !== 'all') level = 'ad';
-  else if (adset_ids && adset_ids !== 'all') level = 'adset';
+  let level = force_level || 'campaign';
+  if (!force_level) {
+    if (ad_ids && ad_ids !== 'all') level = 'ad';
+    else if (adset_ids && adset_ids !== 'all') level = 'adset';
+  }
 
   const fields = [
     'campaign_id', 'campaign_name',
