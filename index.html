@@ -455,7 +455,8 @@ td.nd { color: var(--dim); text-align: right; }
   <div class="filter-group">
     <span class="filter-label">Período</span>
     <select id="f-period" onchange="onPeriodChange()">
-      <option value="last_7d">Últimos 7 dias</option>
+      <option value="today">Hoje</option>
+      <option value="last_7d" selected>Últimos 7 dias</option>
       <option value="last_14d">Últimos 14 dias</option>
       <option value="last_30d">Últimos 30 dias</option>
       <option value="this_month">Este mês</option>
@@ -538,10 +539,13 @@ td.nd { color: var(--dim); text-align: right; }
       </div>
     </div>
 
-    <!-- VÍDEO -->
-    <div class="video-section" id="video-section">
-      <div class="section-title">Métricas de Vídeo</div>
-      <div class="video-grid" id="video-grid"></div>
+    <!-- RETENÇÃO DE VÍDEO -->
+    <div class="table-card" id="video-retention-card" style="display:none">
+      <div class="table-header">
+        <h3>Retenção de Vídeo</h3>
+      </div>
+      <div id="video-retention-bars" style="padding: 20px 24px 8px"></div>
+      <div id="video-retention-diag" style="padding: 0 24px 20px; font-size:13px; color:#a78bfa; line-height:1.6"></div>
     </div>
 
   </div>
@@ -645,6 +649,11 @@ function aggregateRows(rows) {
   t.costPerPurch = t.purchases > 0 ? t.spend / t.purchases : null;
   t.connectRate  = t.link_clicks > 0 ? t.lp_views / t.link_clicks * 100 : null;
   t.hookRate     = t.impressions > 0 && t.v2s > 0 ? t.v2s / t.impressions * 100 : null;
+  t.p25Rate      = t.impressions > 0 && t.vP25 > 0 ? t.vP25 / t.impressions * 100 : null;
+  t.p50Rate      = t.impressions > 0 && t.vP50 > 0 ? t.vP50 / t.impressions * 100 : null;
+  t.p75Rate      = t.impressions > 0 && t.vP75 > 0 ? t.vP75 / t.impressions * 100 : null;
+  t.p100Rate     = t.impressions > 0 && t.vP100 > 0 ? t.vP100 / t.impressions * 100 : null;
+  t.thruplayRate = t.impressions > 0 && t.thruplay > 0 ? t.thruplay / t.impressions * 100 : null;
   t.chkRate      = t.lp_views > 0 ? t.initiate_checkout / t.lp_views * 100 : null;
   t.purchRate    = t.initiate_checkout > 0 ? t.purchases / t.initiate_checkout * 100 : null;
 
@@ -821,7 +830,7 @@ function renderDashboard() {
   renderCharts(rows);
   renderFunnel(totals);
   renderTable(rows);
-  renderVideo(rows);
+  renderVideoRetention(totals);
   updateTimestamp();
   loadAdBreakdown();
 }
@@ -1043,7 +1052,13 @@ const AD_TABLE_COLS = [
   { key: 'lp_views',          label: 'LP Views',     fmt: v => v > 0 ? fmtNum(v) : '<span class="nd">N/D</span>', cls: 'num' },
   { key: 'initiate_checkout', label: 'Início Compra',fmt: v => v > 0 ? fmtNum(v) : '<span class="nd">N/D</span>', cls: 'num' },
   { key: 'purchases',         label: 'Compras',      fmt: v => v > 0 ? fmtNum(v) : '<span class="nd">N/D</span>', cls: 'num' },
-  { key: 'costPerPurch',      label: 'Custo/Compra', fmt: v => v ? fmtBRL(v) : '<span class="nd">N/D</span>', cls: 'num' }
+  { key: 'costPerPurch',      label: 'Custo/Compra', fmt: v => v ? fmtBRL(v) : '<span class="nd">N/D</span>', cls: 'num' },
+  { key: 'hookRate',          label: 'Hook (3s)%',   fmt: v => v != null ? fmtPct(v,1) : '<span class="nd">N/D</span>', cls: 'num' },
+  { key: 'p25Rate',           label: 'P25%',         fmt: v => v != null ? fmtPct(v,1) : '<span class="nd">N/D</span>', cls: 'num' },
+  { key: 'p50Rate',           label: 'P50%',         fmt: v => v != null ? fmtPct(v,1) : '<span class="nd">N/D</span>', cls: 'num' },
+  { key: 'p75Rate',           label: 'P75%',         fmt: v => v != null ? fmtPct(v,1) : '<span class="nd">N/D</span>', cls: 'num' },
+  { key: 'p100Rate',          label: 'P100%',        fmt: v => v != null ? fmtPct(v,1) : '<span class="nd">N/D</span>', cls: 'num' },
+  { key: 'thruplayRate',      label: 'Thruplay%',    fmt: v => v != null ? fmtPct(v,1) : '<span class="nd">N/D</span>', cls: 'num' }
 ];
 
 async function loadAdBreakdown() {
@@ -1101,53 +1116,48 @@ function renderAdTable(rows) {
   }).join('');
 }
 
-// ── VÍDEO ──────────────────────────────────────────────────────────────────
-function renderVideo(rows) {
-  const level = state.insightsLevel;
-  if (level !== 'ad') {
-    document.getElementById('video-section').classList.remove('visible');
-    return;
+// ── RETENÇÃO DE VÍDEO ──────────────────────────────────────────────────────
+function renderVideoRetention(t) {
+  const card = document.getElementById('video-retention-card');
+  if (!t.hasVideo) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  const imp = t.impressions || 1;
+  const points = [
+    { label: 'Hook (3s)', val: t.v2s,      pct: t.v2s / imp * 100,      color: '#7c3aed' },
+    { label: 'P25',       val: t.vP25,     pct: t.vP25 / imp * 100,     color: '#6366f1' },
+    { label: 'P50',       val: t.vP50,     pct: t.vP50 / imp * 100,     color: '#3b82f6' },
+    { label: 'P75',       val: t.vP75,     pct: t.vP75 / imp * 100,     color: '#10b981' },
+    { label: 'P100',      val: t.vP100,    pct: t.vP100 / imp * 100,    color: '#f59e0b' },
+    { label: 'Thruplay',  val: t.thruplay, pct: t.thruplay / imp * 100, color: '#22d3ee' }
+  ];
+
+  document.getElementById('video-retention-bars').innerHTML = `
+    <div style="display:flex;align-items:center;gap:0;width:100%">
+      ${points.map((p, i) => {
+        const w = (100 / points.length).toFixed(1);
+        return `<div style="flex:1;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:${p.color}">${p.pct.toFixed(2)}%</div>
+          <div style="height:6px;background:${p.color};border-radius:3px;margin:6px 4px 4px"></div>
+          <div style="font-size:11px;color:#94a3b8">${p.label}</div>
+          <div style="font-size:11px;color:#64748b">${fmtNum(Math.round(p.val))}</div>
+        </div>${i < points.length - 1 ? '<div style="width:1px;height:40px;background:#1e293b;margin-top:6px"></div>' : ''}`;
+      }).join('')}
+    </div>`;
+
+  // Diagnóstico automático
+  const hook = points[0].pct;
+  const p25  = points[1].pct;
+  const p50  = points[2].pct;
+  let diag = '';
+  if (hook < 3)       diag += `Hook de ${hook.toFixed(2)}% é baixo — os primeiros 3 segundos precisam ser mais fortes. `;
+  else if (hook < 6)  diag += `Hook de ${hook.toFixed(2)}% está razoável — há espaço para melhorar a abertura. `;
+  else                diag += `Hook de ${hook.toFixed(2)}% é bom. `;
+  if (p25 > 0) {
+    const ret = (p50 / p25 * 100).toFixed(0);
+    diag += `De quem chegou ao P25, ${ret}% continuou até P50.`;
   }
-
-  const cfg = TABLE_CONFIGS.ad;
-  const grouped = groupByKey(rows, cfg.idKey, cfg.nameKey)
-    .filter(r => r.hasVideo)
-    .sort((a, b) => b.spend - a.spend);
-
-  if (!grouped.length) {
-    document.getElementById('video-section').classList.remove('visible');
-    return;
-  }
-
-  document.getElementById('video-section').classList.add('visible');
-
-  document.getElementById('video-grid').innerHTML = grouped.map(r => {
-    const imp = r.impressions || 1;
-    const bars = [
-      { label: 'Hook 2s',   value: r.v2s,     pct: r.v2s / imp * 100,     color: '#7c3aed' },
-      { label: 'P25%',      value: r.vP25,    pct: r.vP25 / imp * 100,    color: '#6366f1' },
-      { label: 'P50%',      value: r.vP50,    pct: r.vP50 / imp * 100,    color: '#3b82f6' },
-      { label: 'P75%',      value: r.vP75,    pct: r.vP75 / imp * 100,    color: '#10b981' },
-      { label: 'P100%',     value: r.vP100,   pct: r.vP100 / imp * 100,   color: '#f59e0b' },
-      { label: 'Thruplay',  value: r.thruplay,pct: r.thruplay / imp * 100, color: '#ef4444' }
-    ];
-
-    return `
-      <div class="video-card">
-        <h4>${r.name}</h4>
-        <div class="retention-bar-list">
-          ${bars.map(b => `
-            <div class="ret-row">
-              <span class="ret-label">${b.label}</span>
-              <div class="ret-track">
-                <div class="ret-fill" style="width:${Math.min(100, b.pct).toFixed(1)}%;background:${b.color}"></div>
-              </div>
-              <span class="ret-pct" style="color:${b.color}">${b.pct.toFixed(1)}%</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>`;
-  }).join('');
+  document.getElementById('video-retention-diag').textContent = diag;
 }
 
 // ── ESTADOS DE UI ──────────────────────────────────────────────────────────
