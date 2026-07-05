@@ -1213,7 +1213,7 @@ function renderTable(rows) {
   }
 
   const clickable = state.insightsLevel === 'campaign';
-  document.getElementById('table-body').innerHTML = grouped.map(r => {
+  const bodyRows = grouped.map(r => {
     const rowStyle = clickable ? 'cursor:pointer' : '';
     const rowClick = clickable ? `onclick="filterAdsByCampaign('${r.id}','${(r.name||'').replace(/'/g,"\\'")}')"` : '';
     const cells = TABLE_COLS.map(c => {
@@ -1222,6 +1222,16 @@ function renderTable(rows) {
     }).join('');
     return `<tr style="${rowStyle}" ${rowClick}>${cells}</tr>`;
   }).join('');
+
+  // Linha de totais
+  const tot = aggregateRows(rows);
+  const totCells = TABLE_COLS.map(c => {
+    if (c.key === 'name') return `<td class="${c.cls||''}" style="font-weight:700;color:var(--text)">Total</td>`;
+    const val = tot[c.key];
+    return `<td class="${c.cls||''}" style="font-weight:700;color:var(--text);border-top:1px solid rgba(255,255,255,.12)">${c.fmt(val, tot)}</td>`;
+  }).join('');
+
+  document.getElementById('table-body').innerHTML = bodyRows + `<tr>${totCells}</tr>`;
 }
 
 function sortTable(key) {
@@ -1332,12 +1342,24 @@ function renderAdTableFromCache() {
     return;
   }
 
-  document.getElementById('ad-table-body').innerHTML = sorted.map(r =>
+  const bodyRows = sorted.map(r =>
     '<tr>' + AD_TABLE_COLS.map(c => {
       const val = r[c.key];
       return `<td class="${c.cls||''}">${c.fmt(val, r)}</td>`;
     }).join('') + '</tr>'
   ).join('');
+
+  // Linha de totais (agrega os dados filtrados)
+  const tot = aggregateRows(source);
+  const totCells = AD_TABLE_COLS.map(c => {
+    if (c.key === 'thumb') return `<td class="${c.cls||''}"></td>`;
+    if (c.key === 'campaign_name' || c.key === 'adset_name') return `<td class="${c.cls||''}"></td>`;
+    if (c.key === 'name') return `<td class="${c.cls||''}" style="font-weight:700;color:var(--text)">Total</td>`;
+    const val = tot[c.key];
+    return `<td class="${c.cls||''}" style="font-weight:700;color:var(--text);border-top:1px solid rgba(255,255,255,.12)">${c.fmt(val, tot)}</td>`;
+  }).join('');
+
+  document.getElementById('ad-table-body').innerHTML = bodyRows + `<tr>${totCells}</tr>`;
 }
 
 function adTableSortBy(key) {
