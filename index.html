@@ -815,6 +815,44 @@ function aggregateRows(rows) {
   return t;
 }
 
+// Soma linhas já pré-agregadas (sem campos actions/video_* raw)
+function sumAggregated(rows) {
+  const t = { spend:0, impressions:0, reach:0, clicks:0, link_clicks:0, lp_views:0, initiate_checkout:0, purchases:0, v2s:0, vP25:0, vP50:0, vP75:0, vP100:0, thruplay:0 };
+  for (const r of rows) {
+    t.spend             += r.spend || 0;
+    t.impressions       += r.impressions || 0;
+    t.reach             += r.reach || 0;
+    t.clicks            += r.clicks || 0;
+    t.link_clicks       += r.link_clicks || 0;
+    t.lp_views          += r.lp_views || 0;
+    t.initiate_checkout += r.initiate_checkout || 0;
+    t.purchases         += r.purchases || 0;
+    t.v2s               += r.v2s || 0;
+    t.vP25              += r.vP25 || 0;
+    t.vP50              += r.vP50 || 0;
+    t.vP75              += r.vP75 || 0;
+    t.vP100             += r.vP100 || 0;
+    t.thruplay          += r.thruplay || 0;
+  }
+  const I = t.impressions, S = t.spend, L = t.link_clicks;
+  t.ctr          = I > 0 ? L / I * 100 : 0;
+  t.cpm          = I > 0 ? S / I * 1000 : 0;
+  t.cpc          = L > 0 ? S / L : null;
+  t.costPerLP    = t.lp_views > 0 ? S / t.lp_views : null;
+  t.costPerChk   = t.initiate_checkout > 0 ? S / t.initiate_checkout : null;
+  t.costPerPurch = t.purchases > 0 ? S / t.purchases : null;
+  t.connectRate  = L > 0 ? t.lp_views / L * 100 : null;
+  t.hookRate     = I > 0 && t.v2s > 0 ? t.v2s / I * 100 : null;
+  t.p25Rate      = I > 0 && t.vP25 > 0 ? t.vP25 / I * 100 : null;
+  t.p50Rate      = I > 0 && t.vP50 > 0 ? t.vP50 / I * 100 : null;
+  t.p75Rate      = I > 0 && t.vP75 > 0 ? t.vP75 / I * 100 : null;
+  t.p100Rate     = I > 0 && t.vP100 > 0 ? t.vP100 / I * 100 : null;
+  t.thruplayRate = I > 0 && t.thruplay > 0 ? t.thruplay / I * 100 : null;
+  t.chkRate      = t.lp_views > 0 ? t.initiate_checkout / t.lp_views * 100 : null;
+  t.purchRate    = t.initiate_checkout > 0 ? t.purchases / t.initiate_checkout * 100 : null;
+  return t;
+}
+
 function groupByKey(rows, idKey, nameKey) {
   const map = {};
   for (const r of rows) {
@@ -1350,7 +1388,7 @@ function renderAdTableFromCache() {
   ).join('');
 
   // Linha de totais (agrega os dados filtrados)
-  const tot = aggregateRows(source);
+  const tot = sumAggregated(source);
   const totCells = AD_TABLE_COLS.map(c => {
     if (c.key === 'thumb') return `<td class="${c.cls||''}"></td>`;
     if (c.key === 'campaign_name' || c.key === 'adset_name') return `<td class="${c.cls||''}"></td>`;
