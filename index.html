@@ -409,6 +409,121 @@ td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
 .tipo-LT { background: rgba(236,72,153,0.2); color: #f9a8d4; border: 1px solid rgba(236,72,153,0.3); }
 .tipo-HT { background: rgba(251,191,36,0.2); color: #fde68a; border: 1px solid rgba(251,191,36,0.3); }
 .tipo-OUTRO { background: rgba(100,116,139,0.2); color: var(--muted); border: 1px solid var(--border); }
+
+/* ── MODAL CRIATIVO ── */
+#creative-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+#creative-modal.open { display: flex; }
+.modal-box {
+  background: #0f1729;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 960px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.modal-left {
+  border-right: 1px solid var(--border);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.modal-right {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  grid-column: 1 / -1;
+}
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 28px;
+  cursor: pointer;
+  line-height: 1;
+}
+.modal-close:hover { color: var(--text); }
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 0;
+  grid-column: 1 / -1;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+  margin-bottom: 0;
+}
+.creative-preview {
+  background: #000;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  max-height: 400px;
+}
+.creative-preview img {
+  max-width: 100%;
+  max-height: 400px;
+  object-fit: contain;
+  display: block;
+}
+.creative-preview video {
+  max-width: 100%;
+  max-height: 400px;
+}
+.carousel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+.carousel-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 4px 14px;
+  cursor: pointer;
+  font-size: 18px;
+}
+.carousel-btn:hover { background: var(--surface-hover); }
+.carousel-counter { font-size: 13px; color: var(--muted); }
+.placement-section h4 { font-size: 13px; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .05em; }
+.placement-row { margin-bottom: 10px; }
+.placement-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.placement-track { height: 8px; background: var(--surface); border-radius: 4px; }
+.placement-fill { height: 8px; border-radius: 4px; background: #7c3aed; transition: width .4s; }
+.modal-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.modal-metric { background: var(--surface); border-radius: 8px; padding: 10px 12px; }
+.modal-metric-label { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+.modal-metric-value { font-size: 16px; font-weight: 700; color: var(--text); }
+.thumb-clickable { cursor: pointer; transition: opacity .2s; }
+.thumb-clickable:hover { opacity: 0.75; }
 </style>
 </head>
 <body>
@@ -477,6 +592,32 @@ td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
   </div>
 
   <button class="btn btn-primary" id="btn-apply" onclick="applyFilters()">Aplicar</button>
+</div>
+
+<!-- MODAL CRIATIVO -->
+<div id="creative-modal" onclick="closeModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span id="modal-ad-name" class="modal-title"></span>
+      <button class="modal-close" onclick="closeCreativeModal()">×</button>
+    </div>
+    <div class="modal-left">
+      <div class="creative-preview" id="modal-preview"></div>
+      <div class="carousel-nav" id="modal-carousel-nav" style="display:none">
+        <button class="carousel-btn" onclick="carouselPrev()">‹</button>
+        <span class="carousel-counter" id="carousel-counter"></span>
+        <button class="carousel-btn" onclick="carouselNext()">›</button>
+      </div>
+      <div id="modal-creative-text" style="font-size:13px;color:var(--muted);line-height:1.5"></div>
+    </div>
+    <div class="modal-right">
+      <div class="modal-metrics" id="modal-metrics"></div>
+      <div class="placement-section" id="modal-placements">
+        <h4>Distribuição de Impressões</h4>
+        <div id="modal-placement-bars"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="main">
@@ -1090,8 +1231,8 @@ function getAdThumb(adId) {
   if (!state.entities) return '';
   const ad = (state.entities.ads || []).find(a => a.id === adId);
   const url = ad?.creative?.thumbnail_url || ad?.creative?.image_url || '';
-  if (!url) return '<div style="width:48px;height:48px;background:#1e293b;border-radius:6px"></div>';
-  return `<img src="${url}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;display:block" onerror="this.style.display='none'">`;
+  if (!url) return `<div onclick="openCreativeModal('${adId}')" style="width:48px;height:48px;background:#1e293b;border-radius:6px;cursor:pointer"></div>`;
+  return `<img src="${url}" class="thumb-clickable" onclick="openCreativeModal('${adId}')" style="width:48px;height:48px;object-fit:cover;border-radius:6px;display:block" onerror="this.style.display='none'">`;
 }
 
 const AD_TABLE_COLS = [
@@ -1214,6 +1355,127 @@ function renderVideoRetention(t) {
   }
   document.getElementById('video-retention-diag').textContent = diag;
 }
+
+// ── MODAL CRIATIVO ──────────────────────────────────────────────────────────
+const PLATFORM_LABELS = {
+  facebook: 'Facebook', instagram: 'Instagram', audience_network: 'Audience Network', messenger: 'Messenger'
+};
+const POSITION_LABELS = {
+  feed: 'Feed', story: 'Stories', reels: 'Reels', search: 'Busca',
+  video_feeds: 'Video Feeds', marketplace: 'Marketplace', right_hand_column: 'Coluna Direita',
+  instream_video: 'In-stream Video', instant_article: 'Artigo Instantâneo'
+};
+const PLACEMENT_COLORS = [
+  '#7c3aed','#6366f1','#3b82f6','#0ea5e9','#10b981','#f59e0b','#ef4444','#ec4899','#22d3ee'
+];
+
+let carouselImages = [];
+let carouselIdx = 0;
+let currentAdId = null;
+let currentAdMetrics = null;
+
+async function openCreativeModal(adId) {
+  currentAdId = adId;
+  const modal = document.getElementById('creative-modal');
+  modal.classList.add('open');
+  document.getElementById('modal-ad-name').textContent = 'Carregando...';
+  document.getElementById('modal-preview').innerHTML = '<div style="color:var(--muted);padding:40px">Carregando criativo...</div>';
+  document.getElementById('modal-metrics').innerHTML = '';
+  document.getElementById('modal-placement-bars').innerHTML = '';
+  document.getElementById('modal-carousel-nav').style.display = 'none';
+  document.getElementById('modal-creative-text').textContent = '';
+
+  const f = state.filters;
+  const params = new URLSearchParams({ ad_id: adId });
+  if (f.since && f.until) { params.set('since', f.since); params.set('until', f.until); }
+  else params.set('date_preset', f.date_preset);
+
+  try {
+    const res = await fetch(`/api/creative?${params}`);
+    const data = await res.json();
+    if (data.error) { document.getElementById('modal-preview').innerHTML = `<div style="color:#ef4444;padding:20px">${data.error}</div>`; return; }
+
+    document.getElementById('modal-ad-name').textContent = data.ad_name || 'Anúncio';
+
+    // Preview
+    const c = data.creative || {};
+    if (c.video_url) {
+      document.getElementById('modal-preview').innerHTML =
+        `<video controls autoplay muted style="max-width:100%;max-height:380px;border-radius:8px">
+           <source src="${c.video_url}">
+           <img src="${c.thumbnail_url||''}" style="max-width:100%">
+         </video>`;
+    } else if (c.carousel && c.carousel.length > 1) {
+      carouselImages = c.carousel.map(img => img.url || img.hash);
+      carouselIdx = 0;
+      renderCarouselSlide();
+      document.getElementById('modal-carousel-nav').style.display = 'flex';
+    } else {
+      const imgUrl = c.image_url || c.thumbnail_url || '';
+      document.getElementById('modal-preview').innerHTML = imgUrl
+        ? `<img src="${imgUrl}" style="max-width:100%;max-height:380px;object-fit:contain;border-radius:8px">`
+        : '<div style="color:var(--muted);padding:40px;text-align:center">Prévia não disponível</div>';
+    }
+
+    if (c.title || c.body) {
+      document.getElementById('modal-creative-text').innerHTML =
+        (c.title ? `<strong style="color:var(--text)">${c.title}</strong><br>` : '') + (c.body || '');
+    }
+
+    // Métricas do anúncio nos insights atuais
+    const adRow = (state.insights || []).filter(r => r.ad_id === adId);
+    if (adRow.length) {
+      const m = aggregateRows(adRow);
+      document.getElementById('modal-metrics').innerHTML = [
+        { label: 'Investimento',   value: fmtBRL(m.spend) },
+        { label: 'Impressões',     value: fmtNum(m.impressions) },
+        { label: 'CPM',            value: fmtBRL(m.cpm) },
+        { label: 'CTR',            value: fmtPct(m.ctr, 2) },
+        { label: 'CPC',            value: m.cpc ? fmtBRL(m.cpc) : 'N/D' },
+        { label: 'LP Views',       value: fmtNum(m.lp_views) },
+        { label: 'Hook (3s)%',     value: m.hookRate != null ? fmtPct(m.hookRate, 1) : 'N/D' },
+        { label: 'Compras',        value: fmtNum(m.purchases) },
+        { label: 'Custo/Compra',   value: m.costPerPurch ? fmtBRL(m.costPerPurch) : 'N/D' },
+        { label: 'Thruplay%',      value: m.thruplayRate != null ? fmtPct(m.thruplayRate, 1) : 'N/D' }
+      ].map(k => `<div class="modal-metric"><div class="modal-metric-label">${k.label}</div><div class="modal-metric-value">${k.value}</div></div>`).join('');
+    }
+
+    // Posicionamentos
+    const placements = data.placements || [];
+    const totalImp = placements.reduce((s, p) => s + p.impressions, 0) || 1;
+    document.getElementById('modal-placement-bars').innerHTML = placements.slice(0, 10).map((p, i) => {
+      const pct = (p.impressions / totalImp * 100).toFixed(1);
+      const label = `${PLATFORM_LABELS[p.platform] || p.platform} · ${POSITION_LABELS[p.position] || p.position}`;
+      const color = PLACEMENT_COLORS[i % PLACEMENT_COLORS.length];
+      return `<div class="placement-row">
+        <div class="placement-label"><span>${label}</span><span style="color:${color}">${pct}% · ${fmtNum(p.impressions)}</span></div>
+        <div class="placement-track"><div class="placement-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>`;
+    }).join('') || '<span style="color:var(--dim);font-size:13px">Sem dados de posicionamento</span>';
+
+  } catch(e) {
+    document.getElementById('modal-preview').innerHTML = `<div style="color:#ef4444;padding:20px">${e.message}</div>`;
+  }
+}
+
+function renderCarouselSlide() {
+  const url = carouselImages[carouselIdx];
+  document.getElementById('modal-preview').innerHTML = url
+    ? `<img src="${url}" style="max-width:100%;max-height:380px;object-fit:contain;border-radius:8px">`
+    : '<div style="color:var(--muted);padding:40px">Imagem indisponível</div>';
+  document.getElementById('carousel-counter').textContent = `${carouselIdx + 1} / ${carouselImages.length}`;
+}
+
+function carouselPrev() { carouselIdx = (carouselIdx - 1 + carouselImages.length) % carouselImages.length; renderCarouselSlide(); }
+function carouselNext() { carouselIdx = (carouselIdx + 1) % carouselImages.length; renderCarouselSlide(); }
+
+function closeCreativeModal() {
+  document.getElementById('creative-modal').classList.remove('open');
+  const video = document.querySelector('#modal-preview video');
+  if (video) video.pause();
+}
+
+function closeModal(e) { if (e.target.id === 'creative-modal') closeCreativeModal(); }
 
 // ── ESTADOS DE UI ──────────────────────────────────────────────────────────
 function showLoading() {
