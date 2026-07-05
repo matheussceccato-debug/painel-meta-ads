@@ -679,6 +679,7 @@ td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
     <div class="table-card" id="ad-breakdown-card">
       <div class="table-header">
         <h3>Desempenho por Anúncio</h3>
+        <div id="ad-table-filter-badge" style="display:none;margin-top:6px"></div>
       </div>
       <div class="table-wrap">
         <table id="ad-breakdown-table">
@@ -1211,13 +1212,16 @@ function renderTable(rows) {
     return;
   }
 
-  document.getElementById('table-body').innerHTML = grouped.map(r =>
-    '<tr>' + TABLE_COLS.map(c => {
+  const clickable = state.insightsLevel === 'campaign';
+  document.getElementById('table-body').innerHTML = grouped.map(r => {
+    const rowStyle = clickable ? 'cursor:pointer' : '';
+    const rowClick = clickable ? `onclick="filterAdsByCampaign('${r.id}','${(r.name||'').replace(/'/g,"\\'")}')"` : '';
+    const cells = TABLE_COLS.map(c => {
       const val = c.key === 'name' ? r.name : r[c.key];
-      const html = c.fmt(val, r);
-      return `<td class="${c.cls || ''}">${html}</td>`;
-    }).join('') + '</tr>'
-  ).join('');
+      return `<td class="${c.cls || ''}">${c.fmt(val, r)}</td>`;
+    }).join('');
+    return `<tr style="${rowStyle}" ${rowClick}>${cells}</tr>`;
+  }).join('');
 }
 
 function sortTable(key) {
@@ -1289,12 +1293,12 @@ function renderAdTable(rows) {
   const adContext = {};
   for (const r of rows) {
     if (r.ad_id && !adContext[r.ad_id]) {
-      adContext[r.ad_id] = { campaign_name: r.campaign_name, adset_name: r.adset_name };
+      adContext[r.ad_id] = { campaign_name: r.campaign_name, adset_name: r.adset_name, campaign_id: r.campaign_id };
     }
   }
   const grouped = groupByKey(rows, 'ad_id', 'ad_name').map(r => {
     const ctx = adContext[r.id] || {};
-    return { ...r, campaign_name: ctx.campaign_name, adset_name: ctx.adset_name };
+    return { ...r, campaign_name: ctx.campaign_name, adset_name: ctx.adset_name, campaign_id: ctx.campaign_id };
   });
   adTableData = grouped;
   renderAdTableFromCache();
@@ -1302,7 +1306,10 @@ function renderAdTable(rows) {
 
 function renderAdTableFromCache() {
   const { key, dir } = adTableSort;
-  const sorted = [...adTableData].sort((a, b) => {
+  const source = adCampaignFilter
+    ? adTableData.filter(r => r.campaign_id === adCampaignFilter.id)
+    : adTableData;
+  const sorted = [...source].sort((a, b) => {
     const av = a[key] ?? -Infinity;
     const bv = b[key] ?? -Infinity;
     if (typeof av === 'string') return dir * av.localeCompare(bv);
@@ -1335,12 +1342,47 @@ function renderAdTableFromCache() {
 
 function adTableSortBy(key) {
   if (adTableSort.key === key) {
-    adTableSort.dir *= -1; // alterna asc/desc
+    adTableSort.dir *= -1;
   } else {
     adTableSort.key = key;
-    adTableSort.dir = -1; // sempre começa desc (maior primeiro)
+    adTableSort.dir = -1;
   }
   renderAdTableFromCache();
+}
+
+let adCampaignFilter = null; // { id, name } ou null
+
+function filterAdsByCampaign(campaignId, campaignName) {
+  if (adCampaignFilter && adCampaignFilter.id === campaignId) {
+    // segundo clique na mesma campanha → limpa filtro
+    clearAdCampaignFilter();
+    return;
+  }
+  adCampaignFilter = { id: campaignId, name: campaignName };
+  updateAdFilterBadge();
+  renderAdTableFromCache();
+  // rola até a tabela de anúncios
+  document.getElementById('ad-breakdown-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function clearAdCampaignFilter() {
+  adCampaignFilter = null;
+  updateAdFilterBadge();
+  renderAdTableFromCache();
+}
+
+function updateAdFilterBadge() {
+  const hdr = document.getElementById('ad-table-filter-badge');
+  if (!hdr) return;
+  if (adCampaignFilter) {
+    hdr.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,.18);color:#a78bfa;border:1px solid rgba(124,58,237,.35);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:500">
+      Filtrando: ${adCampaignFilter.name}
+      <span onclick="clearAdCampaignFilter()" style="cursor:pointer;font-size:14px;line-height:1" title="Limpar filtro">×</span>
+    </span>`;
+    hdr.style.display = 'block';
+  } else {
+    hdr.style.display = 'none';
+  }
 }
 
 // ── RETENÇÃO DE VÍDEO ──────────────────────────────────────────────────────
