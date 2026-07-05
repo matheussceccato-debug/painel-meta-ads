@@ -1282,34 +1282,65 @@ async function loadAdBreakdown() {
   }
 }
 
+const adTableSort = { key: 'spend', dir: -1 }; // -1 = desc, 1 = asc
+let adTableData = []; // cache dos dados agrupados para re-sort sem re-fetch
+
 function renderAdTable(rows) {
-  // Preservar campaign_name e adset_name antes do groupByKey consumir as rows
   const adContext = {};
   for (const r of rows) {
     if (r.ad_id && !adContext[r.ad_id]) {
       adContext[r.ad_id] = { campaign_name: r.campaign_name, adset_name: r.adset_name };
     }
   }
+  const grouped = groupByKey(rows, 'ad_id', 'ad_name').map(r => {
+    const ctx = adContext[r.id] || {};
+    return { ...r, campaign_name: ctx.campaign_name, adset_name: ctx.adset_name };
+  });
+  adTableData = grouped;
+  renderAdTableFromCache();
+}
 
-  const grouped = groupByKey(rows, 'ad_id', 'ad_name').sort((a,b) => b.spend - a.spend);
+function renderAdTableFromCache() {
+  const { key, dir } = adTableSort;
+  const sorted = [...adTableData].sort((a, b) => {
+    const av = a[key] ?? -Infinity;
+    const bv = b[key] ?? -Infinity;
+    if (typeof av === 'string') return dir * av.localeCompare(bv);
+    return dir * (bv - av); // dir=-1 → maior primeiro; dir=1 → menor primeiro
+  });
 
-  document.getElementById('ad-table-head').innerHTML = '<tr>' + AD_TABLE_COLS.map(c =>
-    `<th>${c.label}</th>`
-  ).join('') + '</tr>';
+  document.getElementById('ad-table-head').innerHTML = '<tr>' + AD_TABLE_COLS.map((c, i) => {
+    if (!c.label) return `<th></th>`;
+    const sortable = c.key !== 'thumb';
+    const isActive = c.key === key;
+    const arrow = isActive ? (dir === -1 ? ' ↓' : ' ↑') : '';
+    const style = sortable ? 'cursor:pointer;user-select:none' : '';
+    const onclick = sortable ? `onclick="adTableSortBy('${c.key}')"` : '';
+    const activeStyle = isActive ? 'color:var(--accent)' : '';
+    return `<th style="${style};${activeStyle}" ${onclick}>${c.label}${arrow}</th>`;
+  }).join('') + '</tr>';
 
-  if (!grouped.length) {
-    document.getElementById('ad-table-body').innerHTML = '<tr><td colspan="14" class="empty-state">Sem dados</td></tr>';
+  if (!sorted.length) {
+    document.getElementById('ad-table-body').innerHTML = '<tr><td colspan="20" class="empty-state">Sem dados</td></tr>';
     return;
   }
 
-  document.getElementById('ad-table-body').innerHTML = grouped.map(r => {
-    const ctx = adContext[r.id] || {};
-    const enriched = { ...r, campaign_name: ctx.campaign_name, adset_name: ctx.adset_name };
-    return '<tr>' + AD_TABLE_COLS.map(c => {
-      const val = enriched[c.key];
-      return `<td class="${c.cls||''}">${c.fmt(val, enriched)}</td>`;
-    }).join('') + '</tr>';
-  }).join('');
+  document.getElementById('ad-table-body').innerHTML = sorted.map(r =>
+    '<tr>' + AD_TABLE_COLS.map(c => {
+      const val = r[c.key];
+      return `<td class="${c.cls||''}">${c.fmt(val, r)}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+}
+
+function adTableSortBy(key) {
+  if (adTableSort.key === key) {
+    adTableSort.dir *= -1; // alterna asc/desc
+  } else {
+    adTableSort.key = key;
+    adTableSort.dir = -1; // sempre começa desc (maior primeiro)
+  }
+  renderAdTableFromCache();
 }
 
 // ── RETENÇÃO DE VÍDEO ──────────────────────────────────────────────────────
