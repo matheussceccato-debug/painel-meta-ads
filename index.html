@@ -355,6 +355,7 @@ td { padding: 10px 14px; white-space: nowrap; }
 td.name-col { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 td.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.nd { color: var(--dim); text-align: right; }
+td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
 
 /* ── VIDEO SECTION ── */
 .video-section {
@@ -456,6 +457,7 @@ td.nd { color: var(--dim); text-align: right; }
     <span class="filter-label">Período</span>
     <select id="f-period" onchange="onPeriodChange()">
       <option value="today">Hoje</option>
+      <option value="last_3d">Últimos 3 dias</option>
       <option value="last_7d" selected>Últimos 7 dias</option>
       <option value="last_14d">Últimos 14 dias</option>
       <option value="last_30d">Últimos 30 dias</option>
@@ -511,6 +513,12 @@ td.nd { color: var(--dim); text-align: right; }
     <div class="funnel-card">
       <div class="section-title">Funil de Conversão</div>
       <div class="funnel-steps" id="funnel-steps"></div>
+    </div>
+
+    <!-- FUNIL DE VÍDEO -->
+    <div class="funnel-card" id="video-funnel-card" style="display:none">
+      <div class="section-title">Funil de Vídeo</div>
+      <div class="funnel-steps" id="video-funnel-steps"></div>
     </div>
 
     <!-- TABELA -->
@@ -632,13 +640,18 @@ function aggregateRows(rows) {
     t.initiate_checkout += getAction(r.actions, 'initiate_checkout');
     t.purchases     += getAction(r.actions, 'purchase');
     const v2s = getVideo(r.video_continuous_2_sec_watched_actions);
+    const vP25 = getVideo(r.video_p25_watched_actions);
+    const vP50 = getVideo(r.video_p50_watched_actions);
+    const vP75 = getVideo(r.video_p75_watched_actions);
+    const vP100 = getVideo(r.video_p100_watched_actions);
+    const thruplay = getVideo(r.video_thruplay_watched_actions);
     t.v2s     += v2s;
-    t.vP25    += getVideo(r.video_p25_watched_actions);
-    t.vP50    += getVideo(r.video_p50_watched_actions);
-    t.vP75    += getVideo(r.video_p75_watched_actions);
-    t.vP100   += getVideo(r.video_p100_watched_actions);
-    t.thruplay += getVideo(r.video_thruplay_watched_actions);
-    if (v2s > 0) t.hasVideo = true;
+    t.vP25    += vP25;
+    t.vP50    += vP50;
+    t.vP75    += vP75;
+    t.vP100   += vP100;
+    t.thruplay += thruplay;
+    if (v2s > 0 || vP25 > 0 || vP50 > 0 || vP75 > 0 || vP100 > 0 || thruplay > 0) t.hasVideo = true;
   }
 
   t.ctr          = t.impressions > 0 ? t.link_clicks / t.impressions * 100 : 0;
@@ -829,6 +842,7 @@ function renderDashboard() {
   renderKPIs(totals);
   renderCharts(rows);
   renderFunnel(totals);
+  renderVideoFunnel(totals);
   renderTable(rows);
   renderVideoRetention(totals);
   updateTimestamp();
@@ -968,6 +982,39 @@ function renderFunnel(t) {
   }).join('');
 }
 
+// ── FUNIL DE VÍDEO ─────────────────────────────────────────────────────────
+function renderVideoFunnel(t) {
+  const card = document.getElementById('video-funnel-card');
+  if (!t.hasVideo) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  const imp = t.impressions || 1;
+  const steps = [
+    { name: 'Impressões', count: t.impressions, color: '#7c3aed', rate: null },
+    { name: 'Hook (3s)',  count: t.v2s || null,  color: '#6366f1', rate: t.hookRate },
+    { name: 'P25%',       count: t.vP25 || null, color: '#3b82f6', rate: t.vP25 && t.v2s ? t.vP25 / t.v2s * 100 : null },
+    { name: 'P50%',       count: t.vP50 || null, color: '#0ea5e9', rate: t.vP50 && t.vP25 ? t.vP50 / t.vP25 * 100 : null },
+    { name: 'P75%',       count: t.vP75 || null, color: '#10b981', rate: t.vP75 && t.vP50 ? t.vP75 / t.vP50 * 100 : null },
+    { name: 'P100%',      count: t.vP100 || null,color: '#f59e0b', rate: t.vP100 && t.vP75 ? t.vP100 / t.vP75 * 100 : null },
+    { name: 'Thruplay',   count: t.thruplay || null, color: '#22d3ee', rate: t.thruplay && t.vP100 ? t.thruplay / t.vP100 * 100 : null }
+  ];
+
+  const maxCount = steps[0].count || 1;
+  document.getElementById('video-funnel-steps').innerHTML = steps.map(s => {
+    const pct = s.count ? Math.max(8, (s.count / maxCount) * 100) : 8;
+    const nd = s.count == null;
+    return `
+      <div class="funnel-step">
+        <div class="funnel-bar-wrap">
+          <div class="funnel-bar" style="height:${pct}%;background:${s.color}${nd ? ';opacity:0.3' : ''}"></div>
+        </div>
+        <div class="funnel-name">${s.name}</div>
+        <div class="funnel-count" style="color:${s.color}">${nd ? '<span style="color:var(--dim)">N/D</span>' : fmtNum(Math.round(s.count))}</div>
+        <div class="funnel-rate">${s.rate != null ? fmtPct(s.rate) : ''}</div>
+      </div>`;
+  }).join('');
+}
+
 // ── TABELA ──────────────────────────────────────────────────────────────────
 const TABLE_CONFIGS = {
   campaign: { idKey: 'campaign_id', nameKey: 'campaign_name', title: 'Desempenho por Campanha' },
@@ -1039,10 +1086,19 @@ function sortTable(key) {
 }
 
 // ── TABELA POR ANÚNCIO (sempre nível ad) ────────────────────────────────────
+function getAdThumb(adId) {
+  if (!state.entities) return '';
+  const ad = (state.entities.ads || []).find(a => a.id === adId);
+  const url = ad?.creative?.thumbnail_url || ad?.creative?.image_url || '';
+  if (!url) return '<div style="width:48px;height:48px;background:#1e293b;border-radius:6px"></div>';
+  return `<img src="${url}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;display:block" onerror="this.style.display='none'">`;
+}
+
 const AD_TABLE_COLS = [
-  { key: 'campaign_name', label: 'Campanha',      fmt: v => `<span class="name-col" title="${v||''}">${v||'N/D'}</span>`, cls: 'name-col' },
-  { key: 'adset_name',    label: 'Conjunto',       fmt: v => `<span class="name-col" title="${v||''}">${v||'N/D'}</span>`, cls: 'name-col' },
-  { key: 'name',          label: 'Anúncio',        fmt: v => `<span class="name-col" title="${v||''}">${v||'N/D'}</span>`, cls: 'name-col' },
+  { key: 'thumb',         label: '',               fmt: (v, r) => getAdThumb(r.id), cls: 'thumb-col' },
+  { key: 'campaign_name', label: 'Campanha',        fmt: v => `<span class="name-col" title="${v||''}">${v||'N/D'}</span>`, cls: 'name-col' },
+  { key: 'adset_name',    label: 'Conjunto',        fmt: v => `<span class="name-col" title="${v||''}">${v||'N/D'}</span>`, cls: 'name-col' },
+  { key: 'name',          label: 'Anúncio',         fmt: v => `<span class="name-col" title="${v||''}">${v||'N/D'}</span>`, cls: 'name-col' },
   { key: 'spend',             label: 'Investimento', fmt: v => fmtBRL(v),    cls: 'num' },
   { key: 'impressions',       label: 'Impressões',   fmt: v => fmtNum(v),    cls: 'num' },
   { key: 'cpm',               label: 'CPM',          fmt: v => fmtBRL(v),    cls: 'num' },

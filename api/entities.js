@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     const [campsRes, adsetsRes, adsRes] = await Promise.all([
       fetch(`${base}/act_${accountId}/campaigns?fields=id,name,status,objective&limit=200&access_token=${token}`),
       fetch(`${base}/act_${accountId}/adsets?fields=id,name,campaign_id,status&limit=500&access_token=${token}`),
-      fetch(`${base}/act_${accountId}/ads?fields=id,name,adset_id,status&limit=1000&access_token=${token}`)
+      fetch(`${base}/act_${accountId}/ads?fields=id,name,adset_id,status,creative{thumbnail_url,image_url}&limit=1000&access_token=${token}`)
     ]);
 
     const [camps, adsets, ads] = await Promise.all([
