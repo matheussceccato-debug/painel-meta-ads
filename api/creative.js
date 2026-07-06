@@ -122,7 +122,18 @@ export default async function handler(req, res) {
         body: creative.body,
         carousel
       },
-      placements
+      placements,
+      _debug: {
+        raw_object_type: creative.object_type,
+        has_video_id: !!creative.video_id,
+        has_object_story_spec: !!creative.object_story_spec,
+        child_attachments_count: (creative.object_story_spec?.link_data?.child_attachments || []).length,
+        has_asset_feed_spec: !!creative.asset_feed_spec,
+        asset_feed_images: (creative.asset_feed_spec?.images || []).length,
+        video_url_resolved: videoUrl,
+        carousel_count: carousel ? carousel.length : 0,
+        raw_creative_keys: Object.keys(creative)
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
