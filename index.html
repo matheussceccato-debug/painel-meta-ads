@@ -489,27 +489,17 @@ td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
   background: #000;
   border-radius: 10px;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
-  max-height: 45vh;
+  width: 100%;
 }
 .creative-preview img,
 .creative-preview video {
   width: 100%;
   height: auto;
-  max-height: 45vh;
+  max-height: 60vh;
   object-fit: contain;
   display: block;
 }
-.creative-preview iframe {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  height: auto;
-  border: none;
-  display: block;
-}
+/* iframe fica dentro do responsive-embed div, não precisa de regra própria */
 .carousel-nav {
   display: flex;
   align-items: center;
@@ -1562,9 +1552,14 @@ async function openCreativeModal(adId) {
       document.getElementById('modal-preview').innerHTML = '';
       document.getElementById('modal-preview').appendChild(vid);
     } else if (c.video_embed_url) {
-      // Fallback: embed iframe do Facebook
+      // Responsive embed: padding-bottom = ratio do iframe original (sem corte)
+      const pct = ((c.video_embed_ratio || 0.5625) * 100).toFixed(4);
       document.getElementById('modal-preview').innerHTML =
-        `<iframe src="${c.video_embed_url}" style="width:100%;aspect-ratio:16/9;height:auto;border:none;border-radius:8px" allowfullscreen allow="autoplay"></iframe>`;
+        `<div style="position:relative;width:100%;padding-bottom:${pct}%;height:0;overflow:hidden;border-radius:8px">
+           <iframe src="${c.video_embed_url}"
+             style="position:absolute;top:0;left:0;width:100%;height:100%;border:none"
+             allowfullscreen allow="autoplay"></iframe>
+         </div>`;
     } else if (c.video_id) {
       // Fallback final: thumbnail com ícone de play
       renderVideoFallback(c);
