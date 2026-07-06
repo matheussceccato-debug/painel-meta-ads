@@ -1571,6 +1571,13 @@ async function openCreativeModal(adId) {
         (c.title ? `<strong style="color:var(--text)">${c.title}</strong><br>` : '') + (c.body || '');
     }
 
+    // Debug visível (remover após diagnóstico)
+    if (data._debug) {
+      const d = data._debug;
+      document.getElementById('modal-creative-text').innerHTML +=
+        `<pre style="margin-top:12px;font-size:11px;color:#f59e0b;background:rgba(0,0,0,.4);padding:10px;border-radius:6px;white-space:pre-wrap">${JSON.stringify(d, null, 2)}</pre>`;
+    }
+
     // Métricas do anúncio nos insights atuais
     const adRow = (state.insights || []).filter(r => r.ad_id === adId);
     if (adRow.length) {
