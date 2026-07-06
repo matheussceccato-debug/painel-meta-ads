@@ -505,7 +505,8 @@ td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
 }
 .creative-preview iframe {
   width: 100%;
-  height: 70vh;
+  aspect-ratio: 16 / 9;
+  height: auto;
   border: none;
   display: block;
 }
@@ -1563,7 +1564,7 @@ async function openCreativeModal(adId) {
     } else if (c.video_embed_url) {
       // Fallback: embed iframe do Facebook
       document.getElementById('modal-preview').innerHTML =
-        `<iframe src="${c.video_embed_url}" style="width:100%;height:45vh;border:none;border-radius:8px" allowfullscreen allow="autoplay"></iframe>`;
+        `<iframe src="${c.video_embed_url}" style="width:100%;aspect-ratio:16/9;height:auto;border:none;border-radius:8px" allowfullscreen allow="autoplay"></iframe>`;
     } else if (c.video_id) {
       // Fallback final: thumbnail com ícone de play
       renderVideoFallback(c);
