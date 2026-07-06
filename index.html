@@ -1533,32 +1533,32 @@ async function openCreativeModal(adId) {
     // Preview
     const c = data.creative || {};
     if (c.video_url) {
+      // URL direta do vídeo disponível
       const vid = document.createElement('video');
       vid.controls = true; vid.autoplay = true; vid.muted = true;
       vid.style.cssText = 'max-width:100%;max-height:380px;border-radius:8px';
       const src = document.createElement('source');
       src.src = c.video_url;
       vid.appendChild(src);
-      // fallback: se o browser bloquear o vídeo por CORS, mostra thumbnail
-      vid.onerror = () => {
-        const img = c.thumbnail_url || c.image_url || '';
-        document.getElementById('modal-preview').innerHTML = img
-          ? `<div style="position:relative;display:inline-block">
-               <img src="${img}" style="max-width:100%;max-height:380px;border-radius:8px">
-               <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-                 <div style="background:rgba(0,0,0,.6);border-radius:50%;width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:28px">▶</div>
-               </div>
-             </div>
-             <p style="color:var(--muted);font-size:12px;margin-top:8px">Prévia do vídeo bloqueada pelo navegador. O criativo está ativo no Meta Ads.</p>`
-          : '<div style="color:var(--muted);padding:40px">Prévia de vídeo não disponível</div>';
-      };
+      vid.onerror = () => renderVideoFallback(c);
       document.getElementById('modal-preview').innerHTML = '';
       document.getElementById('modal-preview').appendChild(vid);
-    } else if (c.carousel && c.carousel.length > 1) {
-      carouselImages = c.carousel.map(img => img.url || img.hash).filter(Boolean);
+    } else if (c.video_embed_url) {
+      // Fallback: embed iframe do Facebook
+      document.getElementById('modal-preview').innerHTML =
+        `<iframe src="${c.video_embed_url}" style="width:100%;height:380px;border:none;border-radius:8px" allowfullscreen allow="autoplay"></iframe>`;
+    } else if (c.video_id) {
+      // Fallback final: thumbnail com ícone de play
+      renderVideoFallback(c);
+    } else if (c.carousel && c.carousel.length > 0) {
+      carouselImages = c.carousel.map(img => img.url).filter(Boolean);
       carouselIdx = 0;
-      renderCarouselSlide();
-      document.getElementById('modal-carousel-nav').style.display = 'flex';
+      if (carouselImages.length > 0) {
+        renderCarouselSlide();
+        document.getElementById('modal-carousel-nav').style.display = carouselImages.length > 1 ? 'flex' : 'none';
+      } else {
+        document.getElementById('modal-preview').innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center">Imagens do carrossel indisponíveis</div>';
+      }
     } else {
       const imgUrl = c.image_url || c.thumbnail_url || '';
       document.getElementById('modal-preview').innerHTML = imgUrl
@@ -1569,13 +1569,6 @@ async function openCreativeModal(adId) {
     if (c.title || c.body) {
       document.getElementById('modal-creative-text').innerHTML =
         (c.title ? `<strong style="color:var(--text)">${c.title}</strong><br>` : '') + (c.body || '');
-    }
-
-    // Debug visível (remover após diagnóstico)
-    if (data._debug) {
-      const d = data._debug;
-      document.getElementById('modal-creative-text').innerHTML +=
-        `<pre style="margin-top:12px;font-size:11px;color:#f59e0b;background:rgba(0,0,0,.4);padding:10px;border-radius:6px;white-space:pre-wrap">${JSON.stringify(d, null, 2)}</pre>`;
     }
 
     // Métricas do anúncio nos insights atuais
@@ -1624,6 +1617,21 @@ function renderCarouselSlide() {
 
 function carouselPrev() { carouselIdx = (carouselIdx - 1 + carouselImages.length) % carouselImages.length; renderCarouselSlide(); }
 function carouselNext() { carouselIdx = (carouselIdx + 1) % carouselImages.length; renderCarouselSlide(); }
+
+function renderVideoFallback(c) {
+  const img = c.thumbnail_url || c.image_url || '';
+  document.getElementById('modal-preview').innerHTML = img
+    ? `<div style="position:relative;display:inline-block;width:100%">
+         <img src="${img}" style="max-width:100%;max-height:380px;border-radius:8px;display:block">
+         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+           <div style="background:rgba(0,0,0,.65);border-radius:50%;width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:28px">▶</div>
+         </div>
+       </div>
+       <p style="color:var(--muted);font-size:12px;margin-top:8px;text-align:center">
+         Prévia de vídeo não disponível no painel.<br>Visualize no Gerenciador de Anúncios do Meta.
+       </p>`
+    : '<div style="color:var(--muted);padding:40px;text-align:center">Prévia de vídeo não disponível</div>';
+}
 
 function closeCreativeModal() {
   document.getElementById('creative-modal').classList.remove('open');

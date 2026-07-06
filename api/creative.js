@@ -14,81 +14,122 @@ export default async function handler(req, res) {
   if (!ad_id) return res.status(400).json({ error: 'ad_id obrigatório.' });
 
   try {
-    // Campos do criativo — inclui object_story_spec para carrossel e asset_feed_spec para dinâmico
-    const creativeFields = [
+    // ── 1. Buscar criativo com campos expandidos ───────────────────────────
+    const fields = [
       'name',
-      'creative{thumbnail_url,image_url,video_id,object_type,title,body',
-      'object_story_spec,asset_feed_spec}'
+      'creative{',
+        'id,thumbnail_url,image_url,video_id,object_type,title,body,',
+        'object_story_spec{',
+          'link_data{child_attachments{picture,image_hash,video_id,name,description,link}},',
+          'video_data{video_id,image_url,thumbnail_url}',
+        '},',
+        'asset_feed_spec{images{hash,url},videos{video_id,thumbnail_url}}',
+      '}'
     ].join('');
 
     const creativeRes = await fetch(
-      `${base}/${ad_id}?fields=${encodeURIComponent('name,creative{thumbnail_url,image_url,video_id,object_type,title,body,object_story_spec,asset_feed_spec}')}&access_token=${token}`
+      `${base}/${ad_id}?fields=${encodeURIComponent(fields)}&access_token=${token}`
     );
     const creativeData = await creativeRes.json();
     if (creativeData.error) return res.status(400).json({ error: creativeData.error.message });
 
     const creative = creativeData.creative || {};
     let videoUrl = null;
+    let videoEmbedUrl = null;
     let videoPicture = null;
     let carousel = null;
 
-    // ── Detectar carrossel via object_story_spec ──────────────────────────
-    const linkData = creative.object_story_spec?.link_data;
-    const childAttachments = linkData?.child_attachments || [];
+    // ── 2. Carrossel via child_attachments ────────────────────────────────
+    const childAttachments = creative.object_story_spec?.link_data?.child_attachments || [];
 
     if (childAttachments.length > 1) {
-      // Carrossel padrão
-      carousel = childAttachments.map(c => ({
-        url: c.picture || null,
-        video_id: c.video_id || null,
-        name: c.name || '',
-        description: c.description || '',
-        link: c.link || ''
+      // Coletar image_hashes sem picture para buscar em lote
+      const hashesNeeded = childAttachments
+        .filter(c => !c.picture && c.image_hash)
+        .map(c => c.image_hash);
+
+      let hashUrlMap = {};
+      if (hashesNeeded.length > 0) {
+        const imgRes = await fetch(
+          `${base}/act_${accountId}/adimages?hashes=${encodeURIComponent(JSON.stringify(hashesNeeded))}&fields=url,hash&access_token=${token}`
+        );
+        const imgData = await imgRes.json();
+        for (const img of (imgData.data || [])) {
+          if (img.hash && img.url) hashUrlMap[img.hash] = img.url;
+        }
+      }
+
+      carousel = await Promise.all(childAttachments.map(async c => {
+        let url = c.picture || hashUrlMap[c.image_hash] || null;
+
+        // Se for slide de vídeo, busca thumbnail
+        if (!url && c.video_id) {
+          const vRes = await fetch(`${base}/${c.video_id}?fields=picture&access_token=${token}`);
+          const vJson = await vRes.json();
+          if (!vJson.error) url = vJson.picture || null;
+        }
+
+        return { url, video_id: c.video_id || null, name: c.name || '', description: c.description || '' };
       }));
     }
 
-    // ── Detectar carrossel via asset_feed_spec (creative dinâmico) ────────
+    // ── 3. Carrossel via asset_feed_spec (criativo dinâmico) ──────────────
     if (!carousel) {
       const feedImages = creative.asset_feed_spec?.images || [];
       const feedVideos = creative.asset_feed_spec?.videos || [];
-      const allAssets = [...feedImages, ...feedVideos];
-      if (allAssets.length > 1) {
-        carousel = allAssets.map(a => ({
-          url: a.url || a.picture || null,
-          video_id: a.video_id || null,
-          name: ''
-        }));
+
+      // Buscar URLs dos hashes de imagem
+      const hashesNeeded = feedImages.filter(i => !i.url && i.hash).map(i => i.hash);
+      let hashUrlMap = {};
+      if (hashesNeeded.length > 0) {
+        const imgRes = await fetch(
+          `${base}/act_${accountId}/adimages?hashes=${encodeURIComponent(JSON.stringify(hashesNeeded))}&fields=url,hash&access_token=${token}`
+        );
+        const imgData = await imgRes.json();
+        for (const img of (imgData.data || [])) {
+          if (img.hash && img.url) hashUrlMap[img.hash] = img.url;
+        }
       }
+
+      const allAssets = [
+        ...feedImages.map(i => ({ url: i.url || hashUrlMap[i.hash] || null, video_id: null, name: '' })),
+        ...feedVideos.map(v => ({ url: v.thumbnail_url || null, video_id: v.video_id || null, name: '' }))
+      ];
+
+      if (allAssets.length > 1) carousel = allAssets;
     }
 
-    // ── Buscar URL de vídeo ───────────────────────────────────────────────
-    const videoId = creative.video_id || (carousel === null && linkData?.video_id) || null;
+    // ── 4. Vídeo ──────────────────────────────────────────────────────────
+    const videoId = creative.video_id
+      || creative.object_story_spec?.video_data?.video_id
+      || null;
 
     if (videoId) {
       const videoRes = await fetch(
-        `${base}/${videoId}?fields=source,picture,length,embeddable_link&access_token=${token}`
+        `${base}/${videoId}?fields=source,picture,embeddable_link&access_token=${token}`
       );
       const videoJson = await videoRes.json();
       if (!videoJson.error) {
         videoUrl = videoJson.source || null;
-        videoPicture = videoJson.picture || creative.thumbnail_url || null;
-      }
-    }
-
-    // ── Buscar URLs dos slides de vídeo dentro do carrossel ───────────────
-    if (carousel) {
-      for (let i = 0; i < carousel.length; i++) {
-        if (carousel[i].video_id && !carousel[i].url) {
-          const vRes = await fetch(
-            `${base}/${carousel[i].video_id}?fields=picture&access_token=${token}`
-          );
-          const vJson = await vRes.json();
-          if (!vJson.error) carousel[i].url = vJson.picture || null;
+        videoPicture = videoJson.picture
+          || creative.object_story_spec?.video_data?.thumbnail_url
+          || creative.thumbnail_url
+          || null;
+        // Fallback: embed URL do Facebook
+        if (!videoUrl && videoJson.embeddable_link) {
+          videoEmbedUrl = videoJson.embeddable_link;
         }
       }
+
+      // Fallback final: usar embed direto pelo ID
+      if (!videoUrl && !videoEmbedUrl) {
+        videoEmbedUrl = `https://www.facebook.com/video/embed?video_id=${videoId}`;
+      }
+
+      if (!videoPicture) videoPicture = creative.thumbnail_url || null;
     }
 
-    // ── Breakdown de posicionamentos ──────────────────────────────────────
+    // ── 5. Breakdown de posicionamentos ───────────────────────────────────
     let dateParam;
     if (since && until) {
       dateParam = `time_range=${encodeURIComponent(JSON.stringify({ since, until }))}`;
@@ -117,23 +158,13 @@ export default async function handler(req, res) {
         thumbnail_url: videoPicture || creative.thumbnail_url,
         image_url: creative.image_url,
         video_url: videoUrl,
+        video_embed_url: videoEmbedUrl,
         video_id: videoId,
         title: creative.title,
         body: creative.body,
         carousel
       },
-      placements,
-      _debug: {
-        raw_object_type: creative.object_type,
-        has_video_id: !!creative.video_id,
-        has_object_story_spec: !!creative.object_story_spec,
-        child_attachments_count: (creative.object_story_spec?.link_data?.child_attachments || []).length,
-        has_asset_feed_spec: !!creative.asset_feed_spec,
-        asset_feed_images: (creative.asset_feed_spec?.images || []).length,
-        video_url_resolved: videoUrl,
-        carousel_count: carousel ? carousel.length : 0,
-        raw_creative_keys: Object.keys(creative)
-      }
+      placements
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
