@@ -1552,10 +1552,10 @@ async function openCreativeModal(adId) {
       document.getElementById('modal-preview').innerHTML = '';
       document.getElementById('modal-preview').appendChild(vid);
     } else if (c.video_embed_url) {
-      // Responsive embed: padding-bottom = ratio do iframe original (sem corte)
-      const pct = ((c.video_embed_ratio || 0.5625) * 100).toFixed(4);
+      const ratio = c.video_embed_ratio || 0.5625;
+      const invR  = (1 / ratio).toFixed(4);
       document.getElementById('modal-preview').innerHTML =
-        `<div style="position:relative;width:100%;padding-bottom:${pct}%;height:0;overflow:hidden;border-radius:8px">
+        `<div style="aspect-ratio:${invR};max-height:65vh;width:min(100%,calc(65vh / ${ratio.toFixed(4)}));margin:0 auto;position:relative;border-radius:8px;overflow:hidden;background:#000">
            <iframe src="${c.video_embed_url}"
              style="position:absolute;top:0;left:0;width:100%;height:100%;border:none"
              allowfullscreen allow="autoplay"></iframe>
