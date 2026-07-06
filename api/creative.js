@@ -21,9 +21,9 @@ export default async function handler(req, res) {
         'id,thumbnail_url,image_url,video_id,object_type,title,body,',
         'object_story_spec{',
           'link_data{child_attachments{picture,image_hash,video_id,name,description,link}},',
-          'video_data{video_id,image_url,thumbnail_url}',
+          'video_data{video_id,image_url}',
         '},',
-        'asset_feed_spec{images{hash,url},videos{video_id,thumbnail_url}}',
+        'asset_feed_spec{images{hash,url},videos{video_id,picture}}',
       '}'
     ].join('');
 
@@ -112,7 +112,7 @@ export default async function handler(req, res) {
       if (!videoJson.error) {
         videoUrl = videoJson.source || null;
         videoPicture = videoJson.picture
-          || creative.object_story_spec?.video_data?.thumbnail_url
+          || creative.object_story_spec?.video_data?.image_url
           || creative.thumbnail_url
           || null;
 
