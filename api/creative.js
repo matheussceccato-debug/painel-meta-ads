@@ -106,7 +106,7 @@ export default async function handler(req, res) {
 
     if (videoId) {
       const videoRes = await fetch(
-        `${base}/${videoId}?fields=source,picture,embeddable_link&access_token=${token}`
+        `${base}/${videoId}?fields=source,picture,embed_html,permalink_url&access_token=${token}`
       );
       const videoJson = await videoRes.json();
       if (!videoJson.error) {
@@ -115,18 +115,28 @@ export default async function handler(req, res) {
           || creative.object_story_spec?.video_data?.thumbnail_url
           || creative.thumbnail_url
           || null;
-        // Fallback: embed URL do Facebook
-        if (!videoUrl && videoJson.embeddable_link) {
-          videoEmbedUrl = videoJson.embeddable_link;
+
+        // embed_html retorna o iframe oficial do Facebook (funciona cross-origin)
+        if (!videoUrl && videoJson.embed_html) {
+          // Extrair o src do iframe para usar diretamente
+          const match = videoJson.embed_html.match(/src="([^"]+)"/);
+          videoEmbedUrl = match ? match[1].replace(/&amp;/g, '&') : null;
+        }
+
+        // permalink_url como fallback de link direto
+        if (!videoUrl && !videoEmbedUrl && videoJson.permalink_url) {
+          videoEmbedUrl = null; // não tem embed, mas guarda para exibir link
+          videoPicture = videoPicture || null;
         }
       }
 
-      // Fallback final: usar embed direto pelo ID
-      if (!videoUrl && !videoEmbedUrl) {
-        videoEmbedUrl = `https://www.facebook.com/video/embed?video_id=${videoId}`;
-      }
-
       if (!videoPicture) videoPicture = creative.thumbnail_url || null;
+
+      // Garantir que o response inclua permalink para o link de fallback
+      if (!videoUrl && !videoEmbedUrl) {
+        // Último recurso: plugin embed do Facebook
+        videoEmbedUrl = `https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Fvideo%2Fembed%3Fvideo_id%3D${videoId}&width=400&show_text=false&height=300&appId`;
+      }
     }
 
     // ── 5. Breakdown de posicionamentos ───────────────────────────────────
