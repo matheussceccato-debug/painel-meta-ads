@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   try {
     // ── 1. Buscar criativo com campos expandidos ───────────────────────────
     const fields = [
-      'name',
+      'name,',
       'creative{',
         'id,thumbnail_url,image_url,video_id,object_type,title,body,',
         'object_story_spec{',
