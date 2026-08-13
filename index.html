@@ -686,9 +686,9 @@ th.aud-sticky { background: var(--bg2); }
   <div class="filter-group" id="custom-dates" style="display:none">
     <span class="filter-label">Intervalo</span>
     <div class="date-range-row">
-      <input type="date" id="f-since">
+      <input type="date" id="f-since" onchange="onCustomDateChange()">
       <span>até</span>
-      <input type="date" id="f-until">
+      <input type="date" id="f-until" onchange="onCustomDateChange()">
     </div>
   </div>
 
@@ -1119,6 +1119,12 @@ function applyFilters() {
   loadInsights();
 }
 
+function onCustomDateChange() {
+  const since = document.getElementById('f-since').value;
+  const until  = document.getElementById('f-until').value;
+  if (since && until) applyFilters(); // aplica automaticamente quando ambas as datas estão preenchidas
+}
+
 // ── CARREGAR MÉTRICAS ──────────────────────────────────────────────────────
 async function loadInsights() {
   showLoading();
@@ -1141,7 +1147,8 @@ async function loadInsights() {
     params.set('since', f.since);
     params.set('until', f.until);
   } else {
-    params.set('date_preset', f.date_preset);
+    // 'custom' não é um preset válido na Meta API; fallback para last_7d se datas ainda não preenchidas
+    params.set('date_preset', f.date_preset === 'custom' ? 'last_7d' : f.date_preset);
   }
 
   try {
