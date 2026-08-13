@@ -1078,6 +1078,16 @@ function populateAds(adsetId) {
 }
 
 // ── EVENTOS DE FILTRO ──────────────────────────────────────────────────────
+
+// Invalida cache da aba de público e recarrega imediatamente se ela estiver visível
+function invalidateAudience() {
+  audienceLoaded = false;
+  if (document.getElementById('panel-audience') &&
+      document.getElementById('panel-audience').style.display !== 'none') {
+    loadAudience();
+  }
+}
+
 function onTipoChange() {
   state.filters.tipo = document.getElementById('f-tipo').value;
   state.filters.campaign_id = 'all';
@@ -1085,6 +1095,7 @@ function onTipoChange() {
   state.filters.ad_id = 'all';
   populateCampaigns(state.filters.tipo);
   document.getElementById('f-campaign').value = 'all';
+  invalidateAudience();
 }
 
 function onCampaignChange() {
@@ -1093,6 +1104,7 @@ function onCampaignChange() {
   state.filters.adset_id = 'all';
   state.filters.ad_id = 'all';
   populateAdsets(id);
+  invalidateAudience();
 }
 
 function onAdsetChange() {
@@ -1100,10 +1112,12 @@ function onAdsetChange() {
   state.filters.adset_id = id;
   state.filters.ad_id = 'all';
   populateAds(id);
+  invalidateAudience();
 }
 
 function onAdChange() {
   state.filters.ad_id = document.getElementById('f-ad').value;
+  invalidateAudience();
 }
 
 function onPeriodChange() {
@@ -1113,6 +1127,7 @@ function onPeriodChange() {
   if (v !== 'custom') {
     state.filters.since = null;
     state.filters.until = null;
+    invalidateAudience();
     loadInsights();
   }
 }
@@ -1120,7 +1135,7 @@ function onPeriodChange() {
 function applyFilters() {
   state.filters.since = document.getElementById('f-since').value || null;
   state.filters.until = document.getElementById('f-until').value || null;
-  audienceLoaded = false; // força reload da aba de público quando filtros mudam
+  invalidateAudience();
   loadInsights();
 }
 
