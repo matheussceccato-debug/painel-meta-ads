@@ -299,9 +299,11 @@ select:focus, input[type="date"]:focus { border-color: var(--accent); }
 }
 .funnel-bar {
   width: 100%;
+  height: 100%;
   border-radius: 6px 6px 0 0;
-  transition: height 0.6s ease;
-  min-height: 4px;
+  transform-origin: bottom center;
+  transform: scaleY(0);
+  transition: transform 0.6s ease;
 }
 
 .funnel-name { font-size: 11px; color: var(--muted); text-align: center; font-weight: 500; }
@@ -382,7 +384,7 @@ td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
 .ret-row { display: flex; align-items: center; gap: 8px; }
 .ret-label { font-size: 11px; color: var(--muted); width: 70px; flex-shrink: 0; }
 .ret-track { flex: 1; height: 8px; background: rgba(255,255,255,0.07); border-radius: 4px; overflow: hidden; }
-.ret-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+.ret-fill { height: 100%; border-radius: 4px; }
 .ret-pct { font-size: 12px; font-weight: 600; width: 42px; text-align: right; flex-shrink: 0; }
 
 /* ── EMPTY ── */
@@ -526,7 +528,7 @@ td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
 .placement-row { margin-bottom: 10px; }
 .placement-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 .placement-track { height: 8px; background: var(--surface); border-radius: 4px; }
-.placement-fill { height: 8px; border-radius: 4px; background: #7c3aed; transition: width .4s; }
+.placement-fill { height: 8px; width: 100%; border-radius: 4px; background: #7c3aed; transform-origin: left center; transform: scaleX(0); transition: transform .4s; }
 .modal-metric-old { display: none; }
 .modal-metric { background: var(--surface); border-radius: 8px; padding: 8px 10px; }
 .modal-metric-label { font-size: 10px; color: var(--muted); margin-bottom: 1px; }
@@ -1300,7 +1302,7 @@ function renderFunnel(t) {
     return `
       <div class="funnel-step">
         <div class="funnel-bar-wrap">
-          <div class="funnel-bar" style="height:${pct}%;background:${s.color}${nd ? ';opacity:0.3' : ''}"></div>
+          <div class="funnel-bar" style="transform:scaleY(${(pct/100).toFixed(3)});background:${s.color}${nd ? ';opacity:0.3' : ''}"></div>
         </div>
         <div class="funnel-name">${s.name}</div>
         <div class="funnel-count" style="color:${s.color}">${nd ? '<span style="color:var(--dim)">N/D</span>' : fmtNum(s.count)}</div>
@@ -1333,7 +1335,7 @@ function renderVideoFunnel(t) {
     return `
       <div class="funnel-step">
         <div class="funnel-bar-wrap">
-          <div class="funnel-bar" style="height:${pct}%;background:${s.color}${nd ? ';opacity:0.3' : ''}"></div>
+          <div class="funnel-bar" style="transform:scaleY(${(pct/100).toFixed(3)});background:${s.color}${nd ? ';opacity:0.3' : ''}"></div>
         </div>
         <div class="funnel-name">${s.name}</div>
         <div class="funnel-count" style="color:${s.color}">${nd ? '<span style="color:var(--dim)">N/D</span>' : fmtNum(Math.round(s.count))}</div>
@@ -1750,7 +1752,7 @@ async function openCreativeModal(adId) {
       const color = PLACEMENT_COLORS[i % PLACEMENT_COLORS.length];
       return `<div class="placement-row">
         <div class="placement-label"><span>${label}</span><span style="color:${color}">${pct}% · ${fmtNum(p.impressions)}</span></div>
-        <div class="placement-track"><div class="placement-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="placement-track"><div class="placement-fill" style="transform:scaleX(${(p.impressions/totalImp).toFixed(3)});background:${color}"></div></div>
       </div>`;
     }).join('') || '<span style="color:var(--dim);font-size:13px">Sem dados de posicionamento</span>';
 
