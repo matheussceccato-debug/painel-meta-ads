@@ -61,19 +61,24 @@ export default async function handler(req, res) {
 
   try {
     const insightFields = 'impressions,spend,clicks,cpm,cpc,ctr,actions';
-    const iBase = `${base}/act_${accountId}/insights?fields=${insightFields}&${dateParam}${campFilterStr}&limit=200&access_token=${token}`;
+
+    // Quando uma campanha está selecionada, usa /{campaign_id}/insights diretamente
+    // (mais confiável para breakdowns do que filtering no endpoint de conta)
+    const insightBase = campaign_id
+      ? `${base}/${campaign_id}/insights?fields=${insightFields}&${dateParam}&limit=200&access_token=${token}`
+      : `${base}/act_${accountId}/insights?fields=${insightFields}&${dateParam}&limit=200&access_token=${token}`;
 
     const adsetFields = 'id,name,status,campaign{id,name},targeting,targeting_automation,is_dynamic_audience,optimization_goal';
-    const adsetFilter = campFilterArr
-      ? `&filtering=${encodeURIComponent(JSON.stringify(campFilterArr))}`
+    const adsetFilter = campaign_id
+      ? `&filtering=${encodeURIComponent(JSON.stringify([{ field: 'campaign.id', operator: 'IN', value: [campaign_id] }]))}`
       : '';
     const adsetsUrl = `${base}/act_${accountId}/adsets?fields=${adsetFields}&limit=200${adsetFilter}&access_token=${token}`;
 
     const [ageJson, genderJson, countryJson, placementJson, adsetsJson] = await Promise.all([
-      fetch(`${iBase}&breakdowns=age`).then(r => r.json()),
-      fetch(`${iBase}&breakdowns=gender`).then(r => r.json()),
-      fetch(`${iBase}&breakdowns=country`).then(r => r.json()),
-      fetch(`${iBase}&breakdowns=publisher_platform,platform_position`).then(r => r.json()),
+      fetch(`${insightBase}&breakdowns=age`).then(r => r.json()),
+      fetch(`${insightBase}&breakdowns=gender`).then(r => r.json()),
+      fetch(`${insightBase}&breakdowns=country`).then(r => r.json()),
+      fetch(`${insightBase}&breakdowns=publisher_platform,platform_position`).then(r => r.json()),
       fetch(adsetsUrl).then(r => r.json()),
     ]);
 
