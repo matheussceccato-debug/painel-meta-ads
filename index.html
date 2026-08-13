@@ -533,6 +533,96 @@ td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
 .modal-metric-value { font-size: 14px; font-weight: 700; color: var(--text); }
 .thumb-clickable { cursor: pointer; transition: opacity .2s; }
 .thumb-clickable:hover { opacity: 0.75; }
+
+/* ── TABS ─────────────────────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  position: sticky;
+  top: 57px;
+  z-index: 90;
+}
+.tab-btn {
+  padding: 12px 20px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color .15s, border-color .15s;
+  font-family: var(--font);
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── AUDIENCE TAB ─────────────────────────────────────────────────────────── */
+.aud-section { padding-top: 24px; }
+.aud-table-wrap { overflow-x: auto; }
+.aud-table-wrap table { min-width: 960px; width: 100%; }
+.aud-table-wrap th { white-space: nowrap; font-size: 12px; }
+.aud-table-wrap td { white-space: nowrap; font-size: 13px; }
+.aud-sticky { position: sticky; left: 0; background: var(--surface); z-index: 1; }
+th.aud-sticky { background: var(--bg2); }
+
+.adset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+  padding-bottom: 32px;
+}
+.adset-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.adset-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.adset-card-name { font-weight: 600; font-size: 13px; color: var(--text); }
+.adset-card-camp { font-size: 12px; color: var(--muted); }
+.adset-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.adset-meta-full { grid-column: 1 / -1; }
+.adset-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+.adset-meta-label {
+  font-size: 10px;
+  color: var(--dim);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+.badge-adv  { font-size:10px;font-weight:700;background:rgba(124,58,237,.2);color:var(--accent);border:1px solid rgba(124,58,237,.4);border-radius:4px;padding:2px 7px; }
+.badge-dyn  { font-size:10px;font-weight:700;background:rgba(59,130,246,.18);color:var(--info);border:1px solid rgba(59,130,246,.4);border-radius:4px;padding:2px 7px; }
+.badge-man  { font-size:10px;font-weight:700;background:rgba(148,163,184,.1);color:var(--muted);border:1px solid rgba(148,163,184,.2);border-radius:4px;padding:2px 7px; }
+.badge-status-on  { font-size:11px;color:var(--success);background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);border-radius:12px;padding:2px 9px; }
+.badge-status-off { font-size:11px;color:var(--dim);background:rgba(71,85,105,.12);border:1px solid rgba(71,85,105,.3);border-radius:12px;padding:2px 9px; }
 </style>
 </head>
 <body>
@@ -631,7 +721,13 @@ td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
   </div>
 </div>
 
-<div class="main">
+<!-- ABAS -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Visão Geral</button>
+  <button class="tab-btn" data-tab="audience" onclick="switchTab('audience')">Análise de Público</button>
+</div>
+
+<div class="main" id="panel-overview">
   <div id="state-loading" class="state-box" style="display:none">
     <div class="spinner"></div>
     <span>Buscando dados na Meta API...</span>
@@ -709,6 +805,45 @@ td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
       <div id="video-retention-diag" style="padding: 0 24px 20px; font-size:13px; color:#a78bfa; line-height:1.6"></div>
     </div>
 
+  </div>
+</div>
+
+<!-- PAINEL: ANÁLISE DE PÚBLICO -->
+<div id="panel-audience" style="display:none">
+  <div class="main">
+    <div id="aud-loading" class="state-box" style="display:none">
+      <div class="spinner"></div>
+      <span>Analisando segmentos de público...</span>
+    </div>
+    <div id="aud-error" class="error-box" style="display:none"></div>
+    <div id="aud-content" style="display:none">
+
+      <div class="aud-section">
+        <div class="section-title">Desempenho por Faixa Etária</div>
+        <div class="table-card"><div class="aud-table-wrap" id="aud-table-age"></div></div>
+      </div>
+
+      <div class="aud-section">
+        <div class="section-title">Desempenho por Gênero</div>
+        <div class="table-card"><div class="aud-table-wrap" id="aud-table-gender"></div></div>
+      </div>
+
+      <div class="aud-section">
+        <div class="section-title">Desempenho por País <span style="font-size:12px;font-weight:400;color:var(--muted)">(Top 20 por investimento)</span></div>
+        <div class="table-card"><div class="aud-table-wrap" id="aud-table-country"></div></div>
+      </div>
+
+      <div class="aud-section">
+        <div class="section-title">Desempenho por Posicionamento</div>
+        <div class="table-card"><div class="aud-table-wrap" id="aud-table-placement"></div></div>
+      </div>
+
+      <div class="aud-section">
+        <div class="section-title">Configurações dos Conjuntos de Anúncios</div>
+        <div id="aud-adsets-grid"></div>
+      </div>
+
+    </div>
   </div>
 </div>
 
@@ -978,6 +1113,7 @@ function onPeriodChange() {
 function applyFilters() {
   state.filters.since = document.getElementById('f-since').value || null;
   state.filters.until = document.getElementById('f-until').value || null;
+  audienceLoaded = false; // força reload da aba de público quando filtros mudam
   loadInsights();
 }
 
@@ -1702,6 +1838,186 @@ async function loadAll() {
 }
 
 loadAll();
+
+// ── ABA DE PÚBLICO ──────────────────────────────────────────────────────────
+let audienceLoaded = false;
+let audienceData   = null;
+
+const AUD_COLS = [
+  { key:'spend',             label:'Gasto',          fmt: v => fmtBRL(v) },
+  { key:'impressions',       label:'Impressões',      fmt: v => fmtNum(v) },
+  { key:'cpm',               label:'CPM',             fmt: v => fmtBRL(v) },
+  { key:'clicks',            label:'Cliques',         fmt: v => fmtNum(v) },
+  { key:'ctr',               label:'CTR',             fmt: v => fmtPct(v,2) },
+  { key:'cpc',               label:'CPC',             fmt: v => fmtBRL(v) },
+  { key:'purchases',         label:'Compras',         fmt: v => fmtNum(v) },
+  { key:'cost_per_purchase', label:'Custo/Compra',    fmt: v => v>0 ? fmtBRL(v) : '—' },
+  { key:'initiate_checkout', label:'Checkout',        fmt: v => fmtNum(v) },
+  { key:'cost_per_checkout', label:'Custo/Checkout',  fmt: v => v>0 ? fmtBRL(v) : '—' },
+  { key:'add_to_cart',       label:'Add Cart',        fmt: v => fmtNum(v) },
+  { key:'leads',             label:'Leads',           fmt: v => fmtNum(v) },
+];
+
+const audSort = {
+  age:       { col:'spend', dir:-1 },
+  gender:    { col:'spend', dir:-1 },
+  country:   { col:'spend', dir:-1 },
+  placement: { col:'spend', dir:-1 },
+};
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('panel-overview').style.display = tab === 'overview' ? '' : 'none';
+  document.getElementById('panel-audience').style.display = tab === 'audience' ? '' : 'none';
+  if (tab === 'audience' && !audienceLoaded) loadAudience();
+}
+
+async function loadAudience() {
+  const loadEl = document.getElementById('aud-loading');
+  const errEl  = document.getElementById('aud-error');
+  const contEl = document.getElementById('aud-content');
+  loadEl.style.display = 'flex';
+  errEl.style.display  = 'none';
+  contEl.style.display = 'none';
+
+  const f = state.filters;
+  const params = new URLSearchParams();
+  if (f.since && f.until) { params.set('since', f.since); params.set('until', f.until); }
+  else params.set('date_preset', f.date_preset || 'last_7d');
+  if (f.campaign_id !== 'all') params.set('campaign_id', f.campaign_id);
+
+  try {
+    const res = await fetch(`/api/audience?${params}`);
+    audienceData = await res.json();
+    if (audienceData.error) throw new Error(audienceData.error);
+
+    renderAudTable('aud-table-age',       audienceData.by_age,       'age',       'Faixa Etária');
+    renderAudTable('aud-table-gender',    audienceData.by_gender,    'gender',    'Gênero');
+    renderAudTable('aud-table-country',   audienceData.by_country,   'country',   'País');
+    renderAudTable('aud-table-placement', audienceData.by_placement, 'placement', 'Plataforma / Posição');
+    renderAdsetCards(audienceData.adsets || []);
+
+    audienceLoaded = true;
+    loadEl.style.display = 'none';
+    contEl.style.display = '';
+  } catch(e) {
+    loadEl.style.display = 'none';
+    errEl.style.display  = '';
+    errEl.textContent    = 'Erro ao carregar dados de público: ' + e.message;
+  }
+}
+
+function rowsForTable(tableId) {
+  return tableId === 'age'       ? audienceData.by_age
+       : tableId === 'gender'    ? audienceData.by_gender
+       : tableId === 'country'   ? audienceData.by_country
+       : audienceData.by_placement;
+}
+
+function renderAudTable(containerId, rows, tableId, dimLabel) {
+  const el = document.getElementById(containerId);
+  if (!rows || !rows.length) { el.innerHTML = '<div style="padding:20px;color:var(--muted)">Sem dados para este período.</div>'; return; }
+
+  const s = audSort[tableId];
+  const sorted = [...rows].sort((a,b) => {
+    const va = a[s.col] ?? 0, vb = b[s.col] ?? 0;
+    return (typeof va === 'string' ? va.localeCompare(vb) : va - vb) * s.dir;
+  });
+
+  const arrow = col => s.col === col ? (s.dir === -1 ? ' ↓' : ' ↑') : '';
+
+  let html = '<table class="data-table"><thead><tr>';
+  html += `<th class="aud-sticky" style="min-width:140px">${dimLabel}</th>`;
+  AUD_COLS.forEach(c => {
+    html += `<th class="sortable num" onclick="audSortBy('${tableId}','${containerId}','${c.key}','${dimLabel}')">${c.label}${arrow(c.key)}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  sorted.forEach(row => {
+    html += '<tr>';
+    html += `<td class="aud-sticky name-col">${row.dimension ?? '—'}</td>`;
+    AUD_COLS.forEach(c => {
+      const v = row[c.key];
+      html += `<td class="num">${c.fmt(typeof v === 'number' ? v : 0)}</td>`;
+    });
+    html += '</tr>';
+  });
+
+  // Linha de total
+  if (sorted.length > 1) {
+    html += '<tr style="font-weight:700;border-top:2px solid var(--border)">';
+    html += '<td class="aud-sticky" style="background:var(--surface)">Total / Média</td>';
+    AUD_COLS.forEach(c => {
+      let val;
+      const pctKeys = new Set(['ctr','cpm','cpc','cost_per_purchase','cost_per_checkout']);
+      if (pctKeys.has(c.key)) {
+        // média ponderada por spend para CPM/CPC, por cliques para CTR, ou média simples para custos por ação
+        const nonZero = sorted.filter(r => (r[c.key] || 0) > 0);
+        val = nonZero.length ? nonZero.reduce((a,r) => a + r[c.key], 0) / nonZero.length : 0;
+      } else {
+        val = sorted.reduce((a,r) => a + (r[c.key] || 0), 0);
+      }
+      html += `<td class="num">${c.fmt(val)}</td>`;
+    });
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function audSortBy(tableId, containerId, col, dimLabel) {
+  const s = audSort[tableId];
+  if (s.col === col) s.dir *= -1; else { s.col = col; s.dir = -1; }
+  renderAudTable(containerId, rowsForTable(tableId), tableId, dimLabel);
+}
+
+function renderAdsetCards(adsets) {
+  const el = document.getElementById('aud-adsets-grid');
+  if (!adsets.length) { el.innerHTML = '<div style="color:var(--muted);padding:8px 0 24px">Nenhum conjunto encontrado para os filtros selecionados.</div>'; return; }
+
+  const goalLabel = g => ({
+    OFFSITE_CONVERSIONS:'Conversões', LINK_CLICKS:'Cliques no Link',
+    REACH:'Alcance', IMPRESSIONS:'Impressões', LANDING_PAGE_VIEWS:'Visualiz. LP',
+    LEAD_GENERATION:'Captação de Lead', VALUE:'Valor de Compra'
+  }[g] || g || '—');
+
+  let html = '<div class="adset-grid">';
+  adsets.forEach(a => {
+    const badge = a.advantage_audience ? '<span class="badge-adv">Advantage+ Audience</span>'
+                : a.is_dynamic         ? '<span class="badge-dyn">Advantage+ Shopping</span>'
+                :                        '<span class="badge-man">Público Manual</span>';
+    const status = a.status === 'ACTIVE'
+      ? '<span class="badge-status-on">Ativo</span>'
+      : `<span class="badge-status-off">${a.status}</span>`;
+    const interestsTxt = a.interests.length  ? a.interests.slice(0,5).join(', ') + (a.interests.length>5?` +${a.interests.length-5}`:'') : '—';
+    const behavTxt     = a.behaviors.length  ? a.behaviors.slice(0,5).join(', ')  : '—';
+    const customTxt    = a.custom_audiences.length  ? a.custom_audiences.join(', ')  : '—';
+    const excludedTxt  = a.excluded_audiences.length ? a.excluded_audiences.join(', '): '—';
+
+    html += `
+<div class="adset-card">
+  <div class="adset-card-header">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${badge}</div>
+    ${status}
+  </div>
+  <div class="adset-card-name">${a.name}</div>
+  <div class="adset-card-camp">Campanha: ${a.campaign_name || a.campaign_id || '—'}</div>
+  <div class="adset-meta-grid">
+    <div class="adset-meta-item"><span class="adset-meta-label">Idade</span>${a.age_min}–${a.age_max >= 65 ? '65+' : a.age_max}</div>
+    <div class="adset-meta-item"><span class="adset-meta-label">Gênero</span>${a.genders}</div>
+    <div class="adset-meta-item adset-meta-full"><span class="adset-meta-label">Locais</span>${a.geo}</div>
+    <div class="adset-meta-item"><span class="adset-meta-label">Objetivo</span>${goalLabel(a.optimization_goal)}</div>
+    <div class="adset-meta-item adset-meta-full"><span class="adset-meta-label">Interesses</span>${interestsTxt}</div>
+    <div class="adset-meta-item adset-meta-full"><span class="adset-meta-label">Públicos Personalizados</span>${customTxt}</div>
+    <div class="adset-meta-item adset-meta-full"><span class="adset-meta-label">Excluídos</span>${excludedTxt}</div>
+    <div class="adset-meta-item adset-meta-full"><span class="adset-meta-label">Comportamentos</span>${behavTxt}</div>
+  </div>
+</div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
 </script>
 </body>
 </html>
