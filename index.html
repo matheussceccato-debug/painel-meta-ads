@@ -1526,6 +1526,10 @@ async function loadAdBreakdown() {
   } else {
     params.set('date_preset', f.date_preset);
   }
+  // Respeitar filtros de campanha / adset / anúncio
+  if (f.ad_id && f.ad_id !== 'all')           params.set('ad_ids', f.ad_id);
+  else if (f.adset_id && f.adset_id !== 'all') params.set('adset_ids', f.adset_id);
+  else if (f.campaign_id && f.campaign_id !== 'all') params.set('campaign_ids', f.campaign_id);
 
   try {
     const res = await fetch(`/api/insights?${params}`);
