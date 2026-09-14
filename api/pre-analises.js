@@ -14,8 +14,13 @@ export default async function handler(req, res) {
 
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_KEY;
+  // Diz qual das duas falta. Erro generico custou uma rodada de diagnostico.
   if (!url || !key) {
-    return res.status(500).json({ error: 'SUPABASE_URL ou SUPABASE_SERVICE_KEY não configuradas na Vercel.' });
+    const faltando = [!url && 'SUPABASE_URL', !key && 'SUPABASE_SERVICE_KEY'].filter(Boolean);
+    return res.status(500).json({
+      error: 'Faltando na Vercel: ' + faltando.join(' e ') + '. Depois de salvar, republique o projeto.',
+      faltando,
+    });
   }
 
   const dias = Math.min(Number(req.query.dias) || 90, 365);
