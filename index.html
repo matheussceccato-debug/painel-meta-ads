@@ -548,6 +548,42 @@ td.thumb-col { width: 56px; padding: 6px 8px; vertical-align: middle; }
   top: 57px;
   z-index: 90;
 }
+/* Barra de seções. Um nível acima das abas que já existiam. */
+.secao-bar {
+  display: flex; gap: 4px; padding: 10px 20px 0;
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+}
+.secao-btn {
+  background: none; border: 0; color: var(--muted); cursor: pointer;
+  font-family: var(--font); font-size: 14px; font-weight: 700;
+  padding: 10px 18px; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: background .15s, color .15s;
+}
+.secao-btn:hover { color: var(--text); background: var(--surface); }
+.secao-btn.active { color: #fff; background: var(--accent); }
+
+/* Aba da pré-análise */
+.pre-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.pre-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 18px;
+}
+.pre-card h4 {
+  margin: 0 0 12px; font-size: 12px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.pre-linha { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+.pre-linha .rot { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pre-linha .qtd { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.pre-barra { height: 6px; background: rgba(255,255,255,.06); border-radius: 99px; width: 90px; flex: none; overflow: hidden; }
+.pre-barra i { display: block; height: 100%; background: var(--accent); }
+.pre-niveis { display: flex; height: 26px; border-radius: 6px; overflow: hidden; margin: 6px 0 14px; }
+.pre-niveis span { display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #0a0b14; }
+.pre-legenda { display: flex; gap: 14px; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.pre-legenda b { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+.pre-vazio { padding: 48px 20px; text-align: center; color: var(--muted); }
+.pre-vazio h3 { color: var(--text); margin: 0 0 8px; }
 .tab-btn {
   padding: 12px 20px;
   border: none;
@@ -637,6 +673,12 @@ th.aud-sticky { background: var(--bg2); }
   </div>
   <button class="btn btn-ghost" id="btn-refresh" onclick="loadAll()">↻ Atualizar</button>
 </header>
+
+<!-- SEÇÕES. Meta Ads é tudo que já existia. Pré-análise é o formulário 4E. -->
+<div class="secao-bar">
+  <button class="secao-btn active" data-secao="meta" onclick="switchSecao('meta')">Meta Ads</button>
+  <button class="secao-btn" data-secao="pre" onclick="switchSecao('pre')">Pré-análise</button>
+</div>
 
 <div class="filters-bar">
   <div class="filter-group">
@@ -852,6 +894,30 @@ th.aud-sticky { background: var(--bg2); }
 
     </div>
   </div>
+</div>
+
+<!-- ══════════════════════════ PRÉ-ANÁLISE 4E ══════════════════════════ -->
+<div class="main" id="panel-pre" style="display:none">
+
+  <div class="filters-bar" style="padding-left:0;padding-right:0;border:0">
+    <div class="filter-group">
+      <span class="filter-label">Período</span>
+      <select id="pre-dias" onchange="loadPre(true)">
+        <option value="7">Últimos 7 dias</option>
+        <option value="30">Últimos 30 dias</option>
+        <option value="90" selected>Últimos 90 dias</option>
+        <option value="365">Último ano</option>
+      </select>
+    </div>
+    <button class="btn btn-ghost" onclick="loadPre(true)">↻ Atualizar</button>
+  </div>
+
+  <div id="pre-loading" class="state-box" style="display:none">
+    <div class="spinner"></div><span>Lendo as respostas do formulário...</span>
+  </div>
+  <div id="pre-error" class="error-box" style="display:none"></div>
+  <div id="pre-content" style="display:none"></div>
+
 </div>
 
 <script>
@@ -1169,7 +1235,9 @@ function updatePeriodIndicator(since, until, preset) {
   } else {
     lbl.textContent = PRESET_LABELS[preset] || preset;
   }
-  el.style.display = 'block';
+  // O indicador é do Meta Ads. Se a seção aberta for a Pré-análise, fica oculto
+  // mesmo quando o carregamento do Meta termina depois da troca de seção.
+  el.style.display = el.dataset.oculto === '1' ? 'none' : 'block';
 }
 
 // ── CARREGAR MÉTRICAS ──────────────────────────────────────────────────────
@@ -1927,6 +1995,151 @@ const audSort = {
   country:   { col:'spend', dir:-1 },
   placement: { col:'spend', dir:-1 },
 };
+
+// ══════════════════════════ SEÇÕES ══════════════════════════
+// Meta Ads mantém tudo que já existia. Pré-análise é o formulário 4E, que lê o
+// Supabase e não tem nada a ver com os filtros de campanha.
+let preCarregado = false;
+
+function switchSecao(secao) {
+  const ehMeta = secao === 'meta';
+  document.querySelectorAll('.secao-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.secao === secao));
+
+  // Os filtros de campanha e o seletor de período são só do Meta Ads.
+  document.querySelector('.filters-bar').style.display = ehMeta ? '' : 'none';
+  document.querySelector('.tab-bar').style.display = ehMeta ? '' : 'none';
+  const per = document.getElementById('period-indicator');
+  if (per) per.dataset.oculto = ehMeta ? '' : '1';
+  if (per && !ehMeta) per.style.display = 'none';
+  document.getElementById('btn-refresh').style.display = ehMeta ? '' : 'none';
+
+  document.getElementById('panel-pre').style.display = ehMeta ? 'none' : '';
+  if (ehMeta) {
+    switchTab(document.querySelector('.tab-btn.active')?.dataset.tab || 'overview');
+  } else {
+    document.getElementById('panel-overview').style.display = 'none';
+    document.getElementById('panel-audience').style.display = 'none';
+    if (!preCarregado) loadPre();
+  }
+}
+
+const PRE_NIVEL_COR = { 1: '#ef4444', 2: '#f59e0b', 3: '#10b981' };
+const PRE_NIVEL_NOME = { 1: 'No escuro', 2: 'Na mão', 3: 'Estruturado' };
+const PRE_PERFIL = {
+  A: 'Só e-commerce', B: 'Uma loja', C: 'Rede sem e-commerce', D: 'Rede com e-commerce',
+};
+const PRE_DESENHO = {
+  escada: 'Escada descendente', reta_baixa: 'Reta baixa', reta_alta: 'Reta alta',
+  reta_media: 'Reta média', escalar_acima: 'Escalar acima de Estruturar', irregular: 'Irregular',
+};
+
+function preEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function preLista(titulo, pares, rotulos) {
+  const max = Math.max(1, ...pares.map(p => p[1]));
+  const linhas = pares.slice(0, 8).map(([k, n]) =>
+    `<div class="pre-linha">
+       <span class="rot">${preEsc((rotulos && rotulos[k]) || k)}</span>
+       <span class="pre-barra"><i style="width:${Math.round(n / max * 100)}%"></i></span>
+       <span class="qtd">${n}</span>
+     </div>`).join('');
+  return `<div class="pre-card"><h4>${preEsc(titulo)}</h4>${linhas || '<div class="pre-linha"><span class="rot">sem dados</span></div>'}</div>`;
+}
+
+async function loadPre(forcar) {
+  const load = document.getElementById('pre-loading');
+  const err = document.getElementById('pre-error');
+  const cont = document.getElementById('pre-content');
+  load.style.display = 'flex'; err.style.display = 'none'; cont.style.display = 'none';
+
+  try {
+    const dias = document.getElementById('pre-dias').value;
+    const r = await fetch('/api/pre-analises?dias=' + dias + (forcar ? '&t=' + Date.now() : ''));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'falha');
+    preCarregado = true;
+    desenharPre(d);
+    load.style.display = 'none';
+    cont.style.display = '';
+  } catch (e) {
+    load.style.display = 'none';
+    err.style.display = '';
+    err.textContent = 'Não consegui ler as pré-análises: ' + e.message;
+  }
+}
+
+function desenharPre(d) {
+  const cont = document.getElementById('pre-content');
+
+  if (!d.total) {
+    cont.innerHTML = `<div class="pre-vazio"><h3>Nenhuma resposta ainda</h3>
+      <p>Quando alguém preencher o formulário, a leitura aparece aqui.</p></div>`;
+    return;
+  }
+
+  const pct = (n) => (n * 100).toFixed(0) + '%';
+  const kpis = `
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Respostas</div><div class="kpi-value">${d.total}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Agendaram a call</div><div class="kpi-value">${d.agendaram}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Taxa de agendamento</div><div class="kpi-value">${pct(d.taxa_agendamento)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Não agendaram</div><div class="kpi-value">${d.total - d.agendaram}</div></div>
+    </div>`;
+
+  // Onde a carteira está: distribuição de nível em cada um dos quatro Es.
+  const barras = ['enxergar', 'estruturar', 'escalar', 'evoluir'].map(e => {
+    const n = d.niveis[e], tot = n[1] + n[2] + n[3] || 1;
+    const faixa = [1, 2, 3].map(k => n[k]
+      ? `<span style="width:${n[k] / tot * 100}%;background:${PRE_NIVEL_COR[k]}">${n[k]}</span>` : '').join('');
+    return `<div style="margin-bottom:4px">
+      <div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:capitalize">${e}</div>
+      <div class="pre-niveis">${faixa}</div></div>`;
+  }).join('');
+
+  const legenda = `<div class="pre-legenda">` +
+    [1, 2, 3].map(k => `<span><b style="background:${PRE_NIVEL_COR[k]}"></b>${PRE_NIVEL_NOME[k]}</span>`).join('') +
+    `</div>`;
+
+  const tabela = `
+    <div class="table-card"><div class="aud-table-wrap"><table>
+      <thead><tr>
+        <th>Quando</th><th>Marca</th><th>Quem</th><th>Perfil</th>
+        <th>Enx</th><th>Est</th><th>Esc</th><th>Evo</th>
+        <th>Gato preto</th><th>Faturamento</th><th>Agendou</th><th>Código</th>
+      </tr></thead><tbody>
+      ${d.linhas.map(l => `<tr>
+        <td>${new Date(l.criado_em).toLocaleDateString('pt-BR')}</td>
+        <td><b>${preEsc(l.marca)}</b></td>
+        <td>${preEsc(l.nome)}<br><span style="color:var(--dim);font-size:11px">${preEsc(l.email)}${l.whatsapp ? ' · ' + preEsc(l.whatsapp) : ''}</span></td>
+        <td>${preEsc(PRE_PERFIL[l.perfil] || l.perfil)}</td>
+        ${['enxergar', 'estruturar', 'escalar', 'evoluir'].map(e =>
+          `<td style="color:${PRE_NIVEL_COR[l['nivel_' + e]]};font-weight:700" title="${PRE_NIVEL_NOME[l['nivel_' + e]]}">${l['soma_' + e]}</td>`).join('')}
+        <td style="max-width:230px">${preEsc(l.gato_preto)}</td>
+        <td>${preEsc(l.faturamento || '')}</td>
+        <td>${l.agendou ? '<span style="color:var(--success);font-weight:700">sim</span>' : '<span style="color:var(--dim)">não</span>'}</td>
+        <td style="letter-spacing:.1em;color:var(--muted)">${preEsc(l.codigo)}</td>
+      </tr>`).join('')}
+      </tbody></table></div></div>`;
+
+  cont.innerHTML = kpis +
+    `<div class="section-title">Onde a carteira está, nos quatro Es</div>` +
+    legenda + barras +
+    `<div class="section-title">Como os respondentes se distribuem</div>
+     <div class="pre-grid">
+       ${preLista('Gato preto que disparou', d.por_gato)}
+       ${preLista('Perfil de operação', d.por_perfil, PRE_PERFIL)}
+       ${preLista('Desenho dos quatro Es', d.por_desenho, PRE_DESENHO)}
+       ${preLista('Faixa de faturamento', d.por_faturamento)}
+       ${preLista('Plano para 12 meses', d.por_plano)}
+       ${preLista('Já investiu em', d.por_investimento)}
+       ${preLista('Sistema que controla a venda', d.por_sistema)}
+     </div>
+     <div class="section-title">Quem respondeu</div>` + tabela;
+}
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
